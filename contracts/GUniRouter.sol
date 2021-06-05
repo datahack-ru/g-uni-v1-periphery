@@ -2,6 +2,7 @@
 
 pragma solidity 0.8.4;
 
+import {IGUniRouter} from "./interfaces/IGUniRouter.sol";
 import {IGUniPool} from "./interfaces/IGUniPool.sol";
 import {IUniswapV3Pool} from "./interfaces/IUniswapV3Pool.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
@@ -13,12 +14,13 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {
     IUniswapV3SwapCallback
 } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
+import "hardhat/console.sol";
 
-contract GUniRouter is IUniswapV3SwapCallback {
+contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
     using Address for address payable;
     using SafeERC20 for IERC20;
     IWETH public immutable weth;
-    IGUniPool private _pool;
+    IUniswapV3Pool private _pool;
 
     constructor(IWETH _weth) {
         weth = _weth;
@@ -32,21 +34,26 @@ contract GUniRouter is IUniswapV3SwapCallback {
     ) external override {
         require(msg.sender == address(_pool));
         address sender = abi.decode(data, (address));
-
         if (sender == address(this)) {
             if (amount0Delta > 0)
-                _pool.token0().safeTransfer(msg.sender, uint256(amount0Delta));
+                IERC20(_pool.token0()).safeTransfer(
+                    msg.sender,
+                    uint256(amount0Delta)
+                );
             else if (amount1Delta > 0)
-                _pool.token1().safeTransfer(msg.sender, uint256(amount1Delta));
+                IERC20(_pool.token1()).safeTransfer(
+                    msg.sender,
+                    uint256(amount1Delta)
+                );
         } else {
             if (amount0Delta > 0)
-                _pool.token0().safeTransferFrom(
+                IERC20(_pool.token0()).safeTransferFrom(
                     sender,
                     msg.sender,
                     uint256(amount0Delta)
                 );
             else if (amount1Delta > 0) {
-                _pool.token1().safeTransferFrom(
+                IERC20(_pool.token1()).safeTransferFrom(
                     sender,
                     msg.sender,
                     uint256(amount1Delta)
@@ -63,6 +70,7 @@ contract GUniRouter is IUniswapV3SwapCallback {
         uint256 amount1Min
     )
         external
+        override
         returns (
             uint256 amount0,
             uint256 amount1,
@@ -99,6 +107,7 @@ contract GUniRouter is IUniswapV3SwapCallback {
     )
         external
         payable
+        override
         returns (
             uint256 amount0,
             uint256 amount1,
@@ -172,6 +181,7 @@ contract GUniRouter is IUniswapV3SwapCallback {
         uint256 amount1Min
     )
         external
+        override
         returns (
             uint256 amount0,
             uint256 amount1,
@@ -200,6 +210,7 @@ contract GUniRouter is IUniswapV3SwapCallback {
         IERC20(address(pool)).safeTransfer(msg.sender, mintAmount);
     }
 
+    // solhint-disable-next-line function-max-lines
     function rebalanceAndAddLiquidityETH(
         IGUniPool pool,
         uint256 _amount0,
@@ -211,6 +222,7 @@ contract GUniRouter is IUniswapV3SwapCallback {
     )
         external
         payable
+        override
         returns (
             uint256 amount0,
             uint256 amount1,
@@ -250,6 +262,7 @@ contract GUniRouter is IUniswapV3SwapCallback {
         uint256 amount1Min
     )
         external
+        override
         returns (
             uint256 amount0,
             uint256 amount1,
@@ -275,6 +288,7 @@ contract GUniRouter is IUniswapV3SwapCallback {
     }
 
     // solhint-disable-next-line code-complexity, function-max-lines
+    /* TODO: WETH withdraw method does not work on ropsten causing this method to fail.
     function removeLiquidityETH(
         IGUniPool pool,
         uint256 _burnAmount,
@@ -282,6 +296,7 @@ contract GUniRouter is IUniswapV3SwapCallback {
         uint256 amount1Min
     )
         external
+        override
         returns (
             uint256 amount0,
             uint256 amount1,
@@ -325,7 +340,7 @@ contract GUniRouter is IUniswapV3SwapCallback {
                 pool.token0().safeTransfer(msg.sender, amount0);
             }
         }
-    }
+    }*/
 
     function _rebalance(
         IGUniPool pool,
@@ -334,8 +349,8 @@ contract GUniRouter is IUniswapV3SwapCallback {
         uint256 swapAmount,
         uint160 swapThreshold
     ) internal returns (uint256 amount0, uint256 amount1) {
-        _pool = pool;
         IUniswapV3Pool uniPool = pool.pool();
+        _pool = uniPool;
         (uint160 sqrtRatioX96, , , , , , ) = uniPool.slot0();
         (int256 amount0Delta, int256 amount1Delta) =
             uniPool.swap(
@@ -365,8 +380,8 @@ contract GUniRouter is IUniswapV3SwapCallback {
             bool wethToken0
         )
     {
-        _pool = pool;
         IUniswapV3Pool uniPool = pool.pool();
+        _pool = uniPool;
         (uint160 sqrtRatioX96, , , , , , ) = uniPool.slot0();
 
         bool swappingETH;
