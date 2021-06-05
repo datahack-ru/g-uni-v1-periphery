@@ -62,13 +62,11 @@ describe("GUniRouter", function () {
       wethToken
         .connect(user0)
         .approve(gUniRouter.address, ethers.utils.parseEther("100000"));
-      const balanceDaiBefore = await daiToken.balanceOf(
-        await user0.getAddress()
-      );
+      let balanceDaiBefore = await daiToken.balanceOf(await user0.getAddress());
       const balanceWethBefore = await wethToken.balanceOf(
         await user0.getAddress()
       );
-      const balanceGUniBefore = await gUniToken.balanceOf(
+      let balanceGUniBefore = await gUniToken.balanceOf(
         await user0.getAddress()
       );
       await gUniRouter.addLiquidity(
@@ -78,17 +76,31 @@ describe("GUniRouter", function () {
         0,
         0
       );
-      const balanceDaiAfter = await daiToken.balanceOf(
-        await user0.getAddress()
-      );
+      let balanceDaiAfter = await daiToken.balanceOf(await user0.getAddress());
       const balanceWethAfter = await wethToken.balanceOf(
         await user0.getAddress()
       );
-      const balanceGUniAfter = await gUniToken.balanceOf(
+      let balanceGUniAfter = await gUniToken.balanceOf(
         await user0.getAddress()
       );
       expect(balanceDaiBefore).to.be.gt(balanceDaiAfter);
       expect(balanceWethBefore).to.be.gt(balanceWethAfter);
+      expect(balanceGUniBefore).to.be.lt(balanceGUniAfter);
+      balanceDaiBefore = balanceDaiAfter;
+      balanceGUniBefore = balanceGUniAfter;
+
+      await gUniRouter.addLiquidityETH(
+        gUniPool.address,
+        ethers.utils.parseEther("1000"),
+        ethers.utils.parseEther("10"),
+        0,
+        0,
+        { value: ethers.utils.parseEther("10") }
+      );
+
+      balanceDaiAfter = await daiToken.balanceOf(await user0.getAddress());
+      balanceGUniAfter = await gUniToken.balanceOf(await user0.getAddress());
+      expect(balanceDaiBefore).to.be.gt(balanceDaiAfter);
       expect(balanceGUniBefore).to.be.lt(balanceGUniAfter);
     });
   });

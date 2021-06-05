@@ -85,7 +85,7 @@ contract GUniRouter is IUniswapV3SwapCallback {
             pool.token1().safeTransferFrom(msg.sender, address(this), amount1);
             pool.token1().safeIncreaseAllowance(address(pool), amount1);
         }
-        (amount0, amount1, mintAmount) = pool.mint(amount0, amount1);
+        pool.mint(amount0, amount1);
         IERC20(address(pool)).safeTransfer(msg.sender, mintAmount);
     }
 
@@ -158,7 +158,7 @@ contract GUniRouter is IUniswapV3SwapCallback {
             revert("one pool token must be WETH");
         }
 
-        (amount0, amount1, mintAmount) = pool.mint(amount0, amount1);
+        pool.mint(amount0, amount1);
         IERC20(address(pool)).safeTransfer(msg.sender, mintAmount);
     }
 
@@ -233,14 +233,14 @@ contract GUniRouter is IUniswapV3SwapCallback {
             "below min amounts"
         );
 
-        return
-            _depositRebalancedAddLiquidityETH(
-                pool,
-                amount0,
-                amount1,
-                amountETHLeft,
-                wethToken0
-            );
+        _depositRebalancedAddLiquidityETH(
+            pool,
+            amount0,
+            amount1,
+            mintAmount,
+            amountETHLeft,
+            wethToken0
+        );
     }
 
     function removeLiquidity(
@@ -418,20 +418,14 @@ contract GUniRouter is IUniswapV3SwapCallback {
     // solhint-disable-next-line code-complexity
     function _depositRebalancedAddLiquidityETH(
         IGUniPool pool,
-        uint256 _amount0,
-        uint256 _amount1,
+        uint256 amount0,
+        uint256 amount1,
+        uint256 mintAmount,
         uint256 amountETHLeft,
         bool wethToken0
-    )
-        internal
-        returns (
-            uint256 amount0,
-            uint256 amount1,
-            uint256 mintAmount
-        )
-    {
-        uint256 wethAmount = wethToken0 ? _amount0 : _amount1;
-        uint256 otherAmount = wethToken0 ? _amount1 : _amount0;
+    ) internal {
+        uint256 wethAmount = wethToken0 ? amount0 : amount1;
+        uint256 otherAmount = wethToken0 ? amount1 : amount0;
         uint256 wethBalance = IERC20(address(weth)).balanceOf(address(this));
         if (wethAmount > wethBalance) {
             weth.deposit{value: wethAmount - wethBalance}();
@@ -441,11 +435,11 @@ contract GUniRouter is IUniswapV3SwapCallback {
             payable(msg.sender).sendValue(amountETHLeft);
         }
         if (otherAmount > 0 && wethToken0) {
-            pool.token1().safeTransferFrom(msg.sender, address(this), _amount1);
-            pool.token1().safeIncreaseAllowance(address(pool), _amount1);
+            pool.token1().safeTransferFrom(msg.sender, address(this), amount1);
+            pool.token1().safeIncreaseAllowance(address(pool), amount1);
         } else if (otherAmount > 0) {
-            pool.token0().safeTransferFrom(msg.sender, address(this), _amount0);
-            pool.token0().safeIncreaseAllowance(address(pool), _amount0);
+            pool.token0().safeTransferFrom(msg.sender, address(this), amount0);
+            pool.token0().safeIncreaseAllowance(address(pool), amount0);
         }
 
         if (wethAmount > 0) {
@@ -455,7 +449,7 @@ contract GUniRouter is IUniswapV3SwapCallback {
             );
         }
 
-        (amount0, amount1, mintAmount) = pool.mint(_amount0, _amount1);
+        pool.mint(amount0, amount1);
         IERC20(address(pool)).safeTransfer(msg.sender, mintAmount);
     }
 }
