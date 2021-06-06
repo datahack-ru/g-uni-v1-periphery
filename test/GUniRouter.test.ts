@@ -209,7 +209,7 @@ describe("GUniRouter", function () {
       );
       await gUniRouter.removeLiquidity(gUniPool.address, halfBalance, 0, 0);
       let balanceDaiAfter = await daiToken.balanceOf(await user0.getAddress());
-      let balanceWethAfter = await wethToken.balanceOf(
+      const balanceWethAfter = await wethToken.balanceOf(
         await user0.getAddress()
       );
       let balanceGUniAfter = await gUniToken.balanceOf(
@@ -223,8 +223,9 @@ describe("GUniRouter", function () {
       balanceWethBefore = balanceWethAfter;
       balanceGUniBefore = balanceGUniAfter;
 
-      /* TODO: weth function signature error... why ?
-      const balanceEthBefore = await user0.provider?.getBalance(await user0.getAddress());
+      const balanceEthBefore = await user0.provider?.getBalance(
+        await user0.getAddress()
+      );
 
       await gUniRouter.removeLiquidityETH(
         gUniPool.address,
@@ -232,22 +233,15 @@ describe("GUniRouter", function () {
         0,
         0
       );
-      const balanceEthAfter = await user0.provider?.getBalance(await user0.getAddress());
-      expect(balanceEthAfter).to.be.gt(balanceEthBefore);
-      */
-
-      await gUniRouter.removeLiquidity(
-        gUniPool.address,
-        balanceGUniBefore,
-        0,
-        0
+      const balanceEthAfter = await user0.provider?.getBalance(
+        await user0.getAddress()
       );
+      expect(balanceEthAfter).to.be.gt(balanceEthBefore);
+
       balanceDaiAfter = await daiToken.balanceOf(await user0.getAddress());
-      balanceWethAfter = await wethToken.balanceOf(await user0.getAddress());
       balanceGUniAfter = await gUniToken.balanceOf(await user0.getAddress());
 
       expect(balanceDaiAfter).to.be.gt(balanceDaiBefore);
-      expect(balanceWethAfter).to.be.gt(balanceWethBefore);
       expect(balanceGUniBefore).to.be.gt(balanceGUniAfter);
 
       const contractBalanceDai = await daiToken.balanceOf(gUniRouter.address);

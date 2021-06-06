@@ -80,7 +80,7 @@ interface IGUniRouter {
             uint256 burnAmount
         );
 
-    /*function removeLiquidityETH(
+    function removeLiquidityETH(
         IGUniPool pool,
         uint256 _burnAmount,
         uint256 amount0Min,
@@ -91,5 +91,5 @@ interface IGUniRouter {
             uint256 amount0,
             uint256 amount1,
             uint256 burnAmount
-        );*/
+        );
 }

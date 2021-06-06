@@ -288,7 +288,6 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
     }
 
     // solhint-disable-next-line code-complexity, function-max-lines
-    /* TODO: WETH withdraw method does not work on ropsten causing this method to fail.
     function removeLiquidityETH(
         IGUniPool pool,
         uint256 _burnAmount,
@@ -340,7 +339,7 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
                 pool.token0().safeTransfer(msg.sender, amount0);
             }
         }
-    }*/
+    }
 
     function _rebalance(
         IGUniPool pool,
@@ -467,4 +466,7 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
         pool.mint(amount0, amount1);
         IERC20(address(pool)).safeTransfer(msg.sender, mintAmount);
     }
+
+    // solhint-disable-next-line no-empty-blocks
+    receive() external payable {}
 }
