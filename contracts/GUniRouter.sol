@@ -77,10 +77,7 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
             uint256 mintAmount
         )
     {
-        (amount0, amount1, ) = pool.getMintAmounts(
-            amount0Max,
-            amount1Max
-        );
+        (amount0, amount1, ) = pool.getMintAmounts(amount0Max, amount1Max);
         require(
             amount0 >= amount0Min && amount1 >= amount1Min,
             "below min amounts"
@@ -114,10 +111,7 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
             uint256 mintAmount
         )
     {
-        (amount0, amount1, ) = pool.getMintAmounts(
-            amount0Max,
-            amount1Max
-        );
+        (amount0, amount1, ) = pool.getMintAmounts(amount0Max, amount1Max);
         require(
             amount0 >= amount0Min && amount1 >= amount1Min,
             "below min amounts"
@@ -190,10 +184,7 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
     {
         (uint256 amount0Final, uint256 amount1Final) =
             _rebalance(pool, _amount0, _amount1, swapAmount, swapThreshold);
-        (amount0, amount1,) = pool.getMintAmounts(
-            amount0Final,
-            amount1Final
-        );
+        (amount0, amount1, ) = pool.getMintAmounts(amount0Final, amount1Final);
         require(
             amount0 >= amount0Min && amount1 >= amount1Min,
             "below min amounts"
@@ -236,10 +227,7 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
             bool wethToken0
         ) = _rebalanceETH(pool, _amount0, _amount1, swapAmount, swapThreshold);
 
-        (amount0, amount1,) = pool.getMintAmounts(
-            amount0Final,
-            amount1Final
-        );
+        (amount0, amount1, ) = pool.getMintAmounts(amount0Final, amount1Final);
         require(
             amount0 >= amount0Min && amount1 >= amount1Min,
             "below min amounts"
