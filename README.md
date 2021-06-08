@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/gelatodigital/uni-v3-lp-periphery.svg?style=shield&circle-token=4781a26056cdb3529137e8b0f085029cd6323020)](https://app.circleci.com/pipelines/github/gelatodigital/uni-v3-lp-periphery)
+[![CircleCI](https://circleci.com/gh/gelatodigital/uni-v3-lp-periphery/tree/master.svg?style=svg))](https://circleci.com/gh/gelatodigital/uni-v3-lp-periphery/tree/master)
 [![Coverage Status](https://coveralls.io/repos/github/gelatodigital/uni-v3-lp-periphery/badge.svg?branch=master&t=IlcAEC)](https://coveralls.io/github/gelatodigital/uni-v3-lp-periphery?branch=master)
 
 # uni-v3-lp-periphery
