@@ -129,6 +129,25 @@ describe("GUniRouter", function () {
       expect(contractBalanceWeth).to.equal(ethers.constants.Zero);
       expect(contractBalanceG).to.equal(ethers.constants.Zero);
       expect(contractBalanceEth).to.equal(ethers.constants.Zero);
+
+      const { amount0, amount1 } = await gUniRouter.getPoolUnderlyingBalances(
+        gUniPool.address
+      );
+
+      expect(amount0).to.be.gt(ethers.constants.Zero);
+      expect(amount1).to.be.gt(ethers.constants.Zero);
+
+      const { amount0: redeem0, amount1: redeem1 } =
+        await gUniRouter.getUnderlyingBalances(
+          gUniPool.address,
+          await user0.getAddress(),
+          0
+        );
+
+      expect(redeem0).to.be.gt(ethers.constants.Zero);
+      expect(redeem1).to.be.gt(ethers.constants.Zero);
+      expect(redeem0).to.equal(amount0);
+      expect(redeem1).to.equal(amount1);
     });
 
     it("should deposit funds with rebalanceAndAddLiquidity and rebalanceAndAddLiquidityETH", async function () {

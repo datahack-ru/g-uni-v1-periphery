@@ -100,4 +100,15 @@ interface IGUniRouter {
             uint256 amount1,
             uint128 liquidityBurned
         );
+
+    function getPoolUnderlyingBalances(IGUniPool pool)
+        external
+        view
+        returns (uint256 amount0, uint256 amount1);
+
+    function getUnderlyingBalances(
+        IGUniPool pool,
+        address account,
+        uint256 balance
+    ) external view returns (uint256 amount0, uint256 amount1);
 }

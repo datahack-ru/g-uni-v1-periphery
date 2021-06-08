@@ -13,7 +13,15 @@ interface IGUniPool {
 
     function token1() external view returns (IERC20);
 
+    function upperTick() external view returns (int24);
+
+    function lowerTick() external view returns (int24);
+
     function pool() external view returns (IUniswapV3Pool);
+
+    function totalSupply() external view returns (uint256);
+
+    function balanceOf(address account) external view returns (uint256);
 
     function mint(uint256 mintAmount, address receiver)
         external
@@ -39,4 +47,6 @@ interface IGUniPool {
             uint256 amount1,
             uint256 mintAmount
         );
+
+    function getPositionID() external view returns (bytes32 positionID);
 }
