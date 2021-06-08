@@ -15,15 +15,15 @@ interface IGUniPool {
 
     function pool() external view returns (IUniswapV3Pool);
 
-    function mint(uint256 amount0Max, uint256 amount1Max)
+    function mint(uint256 mintAmount, address receiver)
         external
         returns (
             uint256 amount0,
             uint256 amount1,
-            uint256 mintAmount
+            uint128 liquidityMinted
         );
 
-    function burn(uint256 _burnAmount)
+    function burn(uint256 burnAmount, address receiver)
         external
         returns (
             uint256 amount0,
