@@ -35,7 +35,7 @@ const config: HardhatUserConfig = {
       // timeout: 150000,
       forking: {
         url: `https://eth-ropsten.alchemyapi.io/v2/${ALCHEMY_ID}`,
-        blockNumber: 10376804,
+        blockNumber: 10390500,
       },
     },
     mainnet: {

@@ -29,7 +29,7 @@ describe("GUniRouter", function () {
 
     gUniPool = (await ethers.getContractAt(
       "IGUniPool",
-      addresses.GUNIV3
+      addresses.GUNIWethDai
     )) as IGUniPool;
     wethToken = (await ethers.getContractAt(
       "IERC20",
@@ -38,7 +38,7 @@ describe("GUniRouter", function () {
     daiToken = (await ethers.getContractAt("IERC20", addresses.DAI)) as IERC20;
     gUniToken = (await ethers.getContractAt(
       "IERC20",
-      addresses.GUNIV3
+      addresses.GUNIWethDai
     )) as IERC20;
 
     pool = (await ethers.getContractAt(
@@ -48,19 +48,20 @@ describe("GUniRouter", function () {
 
     const gUniRouterFactory = await ethers.getContractFactory("GUniRouter");
 
-    gUniRouter = (await gUniRouterFactory.deploy(addresses.WETH)) as GUniRouter;
+    gUniRouter = (await gUniRouterFactory.deploy(
+      addresses.UniswapFactory,
+      addresses.WETH
+    )) as GUniRouter;
 
     const daiFaucet = "0xEB52Ce516a8d054A574905BDc3D4a176D3a2d51a";
     await network.provider.request({
       method: "hardhat_impersonateAccount",
       params: [daiFaucet],
     });
-
     const faucetSigner = await ethers.provider.getSigner(daiFaucet);
     await daiToken
       .connect(faucetSigner)
       .transfer(await user0.getAddress(), await daiToken.balanceOf(daiFaucet));
-
     weth = (await ethers.getContractAt("IWETH", addresses.WETH)) as IWETH;
 
     weth.deposit({ value: ethers.utils.parseEther("500") });
@@ -68,10 +69,10 @@ describe("GUniRouter", function () {
 
   describe("deposits through router contract", function () {
     it("should deposit funds with addLiquidity and addLiquidityETH", async function () {
-      daiToken
+      await daiToken
         .connect(user0)
         .approve(gUniRouter.address, ethers.utils.parseEther("1000000"));
-      wethToken
+      await wethToken
         .connect(user0)
         .approve(gUniRouter.address, ethers.utils.parseEther("100000"));
       let balanceDaiBefore = await daiToken.balanceOf(await user0.getAddress());
@@ -86,7 +87,8 @@ describe("GUniRouter", function () {
         ethers.utils.parseEther("1000"),
         ethers.utils.parseEther("10"),
         0,
-        0
+        0,
+        await user0.getAddress()
       );
       let balanceDaiAfter = await daiToken.balanceOf(await user0.getAddress());
       const balanceWethAfter = await wethToken.balanceOf(
@@ -107,6 +109,7 @@ describe("GUniRouter", function () {
         ethers.utils.parseEther("10"),
         0,
         0,
+        await user0.getAddress(),
         { value: ethers.utils.parseEther("10") }
       );
 
@@ -148,10 +151,12 @@ describe("GUniRouter", function () {
         gUniPool.address,
         ethers.utils.parseEther("1000"),
         0,
+        true,
         ethers.utils.parseEther("500"),
         sqrtPriceX96.div("100"),
         0,
-        0
+        0,
+        await user0.getAddress()
       );
 
       const balanceDaiAfter = await daiToken.balanceOf(
@@ -164,26 +169,38 @@ describe("GUniRouter", function () {
       expect(balanceGUniBefore).to.be.lt(balanceGUniAfter);
       balanceGUniBefore = balanceGUniAfter;
 
+      let contractBalanceDai = await daiToken.balanceOf(gUniRouter.address);
+      let contractBalanceWeth = await wethToken.balanceOf(gUniRouter.address);
+      let contractBalanceG = await gUniToken.balanceOf(gUniRouter.address);
+      let contractBalanceEth = await user0.provider?.getBalance(
+        gUniRouter.address
+      );
+
+      expect(contractBalanceDai).to.equal(ethers.constants.Zero);
+      expect(contractBalanceWeth).to.equal(ethers.constants.Zero);
+      expect(contractBalanceG).to.equal(ethers.constants.Zero);
+      expect(contractBalanceEth).to.equal(ethers.constants.Zero);
+
       await gUniRouter.rebalanceAndAddLiquidityETH(
         gUniPool.address,
         0,
         ethers.utils.parseEther("10"),
+        false,
         ethers.utils.parseEther("5"),
         sqrtPriceX96.mul("100"),
         0,
         0,
+        await user0.getAddress(),
         { value: ethers.utils.parseEther("10") }
       );
 
       balanceGUniAfter = await gUniToken.balanceOf(await user0.getAddress());
       expect(balanceGUniBefore).to.be.lt(balanceGUniAfter);
 
-      const contractBalanceDai = await daiToken.balanceOf(gUniRouter.address);
-      const contractBalanceWeth = await wethToken.balanceOf(gUniRouter.address);
-      const contractBalanceG = await gUniToken.balanceOf(gUniRouter.address);
-      const contractBalanceEth = await user0.provider?.getBalance(
-        gUniRouter.address
-      );
+      contractBalanceDai = await daiToken.balanceOf(gUniRouter.address);
+      contractBalanceWeth = await wethToken.balanceOf(gUniRouter.address);
+      contractBalanceG = await gUniToken.balanceOf(gUniRouter.address);
+      contractBalanceEth = await user0.provider?.getBalance(gUniRouter.address);
 
       expect(contractBalanceDai).to.equal(ethers.constants.Zero);
       expect(contractBalanceWeth).to.equal(ethers.constants.Zero);
@@ -192,7 +209,7 @@ describe("GUniRouter", function () {
     });
   });
   describe("withdrawal through router contract", function () {
-    it("should withdraw funds with removeLiquidity", async function () {
+    it("should withdraw funds with removeLiquidity and removeLiquidityETH", async function () {
       let balanceGUniBefore = await gUniToken.balanceOf(
         await user0.getAddress()
       );
@@ -207,9 +224,15 @@ describe("GUniRouter", function () {
         gUniRouter.address,
         ethers.utils.parseEther("100000000")
       );
-      await gUniRouter.removeLiquidity(gUniPool.address, halfBalance, 0, 0);
+      await gUniRouter.removeLiquidity(
+        gUniPool.address,
+        halfBalance,
+        0,
+        0,
+        await user0.getAddress()
+      );
       let balanceDaiAfter = await daiToken.balanceOf(await user0.getAddress());
-      const balanceWethAfter = await wethToken.balanceOf(
+      let balanceWethAfter = await wethToken.balanceOf(
         await user0.getAddress()
       );
       let balanceGUniAfter = await gUniToken.balanceOf(
@@ -231,17 +254,21 @@ describe("GUniRouter", function () {
         gUniPool.address,
         balanceGUniBefore,
         0,
-        0
+        0,
+        await user0.getAddress()
       );
+
       const balanceEthAfter = await user0.provider?.getBalance(
         await user0.getAddress()
       );
-      expect(balanceEthAfter).to.be.gt(balanceEthBefore);
 
       balanceDaiAfter = await daiToken.balanceOf(await user0.getAddress());
+      balanceWethAfter = await wethToken.balanceOf(await user0.getAddress());
       balanceGUniAfter = await gUniToken.balanceOf(await user0.getAddress());
 
       expect(balanceDaiAfter).to.be.gt(balanceDaiBefore);
+      expect(balanceEthAfter).to.be.gt(balanceEthBefore);
+      expect(balanceWethBefore).to.equal(balanceWethAfter);
       expect(balanceGUniBefore).to.be.gt(balanceGUniAfter);
 
       const contractBalanceDai = await daiToken.balanceOf(gUniRouter.address);

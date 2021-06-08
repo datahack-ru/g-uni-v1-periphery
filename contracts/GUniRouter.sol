@@ -14,52 +14,42 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {
     IUniswapV3SwapCallback
 } from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
+import {
+    IUniswapV3Factory
+} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "hardhat/console.sol";
 
 contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
     using Address for address payable;
     using SafeERC20 for IERC20;
     IWETH public immutable weth;
-    IUniswapV3Pool private _pool;
+    IUniswapV3Factory public immutable factory;
 
-    constructor(IWETH _weth) {
+    constructor(IUniswapV3Factory _factory, IWETH _weth) {
         weth = _weth;
+        factory = _factory;
     }
 
     // solhint-disable-next-line code-complexity
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
-        bytes calldata data
+        bytes calldata
     ) external override {
-        require(msg.sender == address(_pool));
-        address sender = abi.decode(data, (address));
-        if (sender == address(this)) {
-            if (amount0Delta > 0)
-                IERC20(_pool.token0()).safeTransfer(
-                    msg.sender,
-                    uint256(amount0Delta)
-                );
-            else if (amount1Delta > 0)
-                IERC20(_pool.token1()).safeTransfer(
-                    msg.sender,
-                    uint256(amount1Delta)
-                );
-        } else {
-            if (amount0Delta > 0)
-                IERC20(_pool.token0()).safeTransferFrom(
-                    sender,
-                    msg.sender,
-                    uint256(amount0Delta)
-                );
-            else if (amount1Delta > 0) {
-                IERC20(_pool.token1()).safeTransferFrom(
-                    sender,
-                    msg.sender,
-                    uint256(amount1Delta)
-                );
-            }
-        }
+        IUniswapV3Pool pool = IUniswapV3Pool(msg.sender);
+        address token0 = pool.token0();
+        address token1 = pool.token1();
+        uint24 fee = pool.fee();
+
+        require(
+            msg.sender == factory.getPool(token0, token1, fee),
+            "invalid uniswap pool"
+        );
+
+        if (amount0Delta > 0)
+            IERC20(token0).safeTransfer(msg.sender, uint256(amount0Delta));
+        else if (amount1Delta > 0)
+            IERC20(token1).safeTransfer(msg.sender, uint256(amount1Delta));
     }
 
     function addLiquidity(
@@ -67,7 +57,8 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
         uint256 amount0Max,
         uint256 amount1Max,
         uint256 amount0Min,
-        uint256 amount1Min
+        uint256 amount1Min,
+        address receiver
     )
         external
         override
@@ -77,21 +68,28 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
             uint256 mintAmount
         )
     {
-        (amount0, amount1, ) = pool.getMintAmounts(amount0Max, amount1Max);
+        (uint256 amount0In, uint256 amount1In, uint256 _mintAmount) =
+            pool.getMintAmounts(amount0Max, amount1Max);
         require(
-            amount0 >= amount0Min && amount1 >= amount1Min,
+            amount0In >= amount0Min && amount1In >= amount1Min,
             "below min amounts"
         );
-        if (amount0 > 0) {
-            pool.token0().safeTransferFrom(msg.sender, address(this), amount0);
-            pool.token0().safeIncreaseAllowance(address(pool), amount0);
+        if (amount0In > 0) {
+            pool.token0().safeTransferFrom(
+                msg.sender,
+                address(this),
+                amount0In
+            );
         }
-        if (amount1 > 0) {
-            pool.token1().safeTransferFrom(msg.sender, address(this), amount1);
-            pool.token1().safeIncreaseAllowance(address(pool), amount1);
+        if (amount1In > 0) {
+            pool.token1().safeTransferFrom(
+                msg.sender,
+                address(this),
+                amount1In
+            );
         }
-        (, , mintAmount) = pool.mint(amount0, amount1);
-        IERC20(address(pool)).safeTransfer(msg.sender, mintAmount);
+
+        return _deposit(pool, amount0In, amount1In, _mintAmount, receiver);
     }
 
     // solhint-disable-next-line code-complexity, function-max-lines
@@ -100,7 +98,8 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
         uint256 amount0Max,
         uint256 amount1Max,
         uint256 amount0Min,
-        uint256 amount1Min
+        uint256 amount1Min,
+        address receiver
     )
         external
         payable
@@ -111,68 +110,75 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
             uint256 mintAmount
         )
     {
-        (amount0, amount1, ) = pool.getMintAmounts(amount0Max, amount1Max);
+        (uint256 amount0In, uint256 amount1In, uint256 _mintAmount) =
+            pool.getMintAmounts(amount0Max, amount1Max);
         require(
-            amount0 >= amount0Min && amount1 >= amount1Min,
+            amount0In >= amount0Min && amount1In >= amount1Min,
             "below min amounts"
         );
 
-        if (address(pool.token0()) == address(weth)) {
+        if (isToken0Weth(address(pool.token0()), address(pool.token1()))) {
             require(
                 amount0Max == msg.value,
                 "mismatching amount of ETH forwarded"
             );
-            if (amount0 > 0) {
-                weth.deposit{value: amount0}();
-                pool.token0().safeIncreaseAllowance(address(pool), amount0);
+            if (amount0In > 0) {
+                weth.deposit{value: amount0In}();
             }
-            if (amount0Max - amount0 > 0) {
-                payable(msg.sender).sendValue(amount0Max - amount0);
-            }
-            if (amount1 > 0) {
+            if (amount1In > 0) {
                 pool.token1().safeTransferFrom(
                     msg.sender,
                     address(this),
-                    amount1
+                    amount1In
                 );
-                pool.token1().safeIncreaseAllowance(address(pool), amount1);
             }
-        } else if (address(pool.token1()) == address(weth)) {
+        } else {
             require(
                 amount1Max == msg.value,
                 "mismatching amount of ETH forwarded"
             );
-            if (amount1 > 0) {
-                weth.deposit{value: amount1}();
-                pool.token1().safeIncreaseAllowance(address(pool), amount1);
+            if (amount1In > 0) {
+                weth.deposit{value: amount1In}();
             }
-            if (amount1Max - amount1 > 0) {
-                payable(msg.sender).sendValue(amount1Max - amount1);
-            }
-            if (amount0 > 0) {
+            if (amount0In > 0) {
                 pool.token0().safeTransferFrom(
                     msg.sender,
                     address(this),
-                    amount0
+                    amount0In
                 );
-                pool.token0().safeIncreaseAllowance(address(pool), amount0);
             }
-        } else {
-            revert("one pool token must be WETH");
         }
 
-        (, , mintAmount) = pool.mint(amount0, amount1);
-        IERC20(address(pool)).safeTransfer(msg.sender, mintAmount);
+        (amount0, amount1, mintAmount) = _deposit(
+            pool,
+            amount0In,
+            amount1In,
+            _mintAmount,
+            receiver
+        );
+
+        if (isToken0Weth(address(pool.token0()), address(pool.token1()))) {
+            if (amount0Max > amount0In) {
+                payable(msg.sender).sendValue(amount0Max - amount0In);
+            }
+        } else {
+            if (amount1Max > amount1In) {
+                payable(msg.sender).sendValue(amount1Max - amount1In);
+            }
+        }
     }
 
+    // solhint-disable-next-line function-max-lines
     function rebalanceAndAddLiquidity(
         IGUniPool pool,
-        uint256 _amount0,
-        uint256 _amount1,
+        uint256 amount0In,
+        uint256 amount1In,
+        bool zeroForOne,
         uint256 swapAmount,
         uint160 swapThreshold,
         uint256 amount0Min,
-        uint256 amount1Min
+        uint256 amount1Min,
+        address receiver
     )
         external
         override
@@ -182,34 +188,34 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
             uint256 mintAmount
         )
     {
-        (uint256 amount0Final, uint256 amount1Final) =
-            _rebalance(pool, _amount0, _amount1, swapAmount, swapThreshold);
-        (amount0, amount1, ) = pool.getMintAmounts(amount0Final, amount1Final);
+        (uint256 amount0Use, uint256 amount1Use, uint256 _mintAmount) =
+            _prepareRebalanceDeposit(
+                pool,
+                amount0In,
+                amount1In,
+                zeroForOne,
+                swapAmount,
+                swapThreshold
+            );
         require(
-            amount0 >= amount0Min && amount1 >= amount1Min,
+            amount0Use >= amount0Min && amount1Use >= amount1Min,
             "below min amounts"
         );
-        if (amount0 > 0) {
-            pool.token0().safeTransferFrom(msg.sender, address(this), amount0);
-            pool.token0().safeIncreaseAllowance(address(pool), amount0);
-        }
-        if (amount1 > 0) {
-            pool.token1().safeTransferFrom(msg.sender, address(this), amount1);
-            pool.token1().safeIncreaseAllowance(address(pool), amount1);
-        }
-        (amount0, amount1, mintAmount) = pool.mint(amount0, amount1);
-        IERC20(address(pool)).safeTransfer(msg.sender, mintAmount);
+
+        return _deposit(pool, amount0Use, amount1Use, _mintAmount, receiver);
     }
 
-    // solhint-disable-next-line function-max-lines
+    // solhint-disable-next-line function-max-lines, code-complexity
     function rebalanceAndAddLiquidityETH(
         IGUniPool pool,
-        uint256 _amount0,
-        uint256 _amount1,
+        uint256 amount0In,
+        uint256 amount1In,
+        bool zeroForOne,
         uint256 swapAmount,
         uint160 swapThreshold,
         uint256 amount0Min,
-        uint256 amount1Min
+        uint256 amount1Min,
+        address receiver
     )
         external
         payable
@@ -220,90 +226,91 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
             uint256 mintAmount
         )
     {
-        (
-            uint256 amount0Final,
-            uint256 amount1Final,
-            uint256 amountETHLeft,
-            bool wethToken0
-        ) = _rebalanceETH(pool, _amount0, _amount1, swapAmount, swapThreshold);
-
-        (amount0, amount1, ) = pool.getMintAmounts(amount0Final, amount1Final);
+        (uint256 amount0Use, uint256 amount1Use, uint256 _mintAmount) =
+            _prepareAndRebalanceDepositETH(
+                pool,
+                amount0In,
+                amount1In,
+                zeroForOne,
+                swapAmount,
+                swapThreshold
+            );
         require(
-            amount0 >= amount0Min && amount1 >= amount1Min,
+            amount0Use >= amount0Min && amount1Use >= amount1Min,
             "below min amounts"
         );
 
-        mintAmount = _depositRebalancedAddLiquidityETH(
+        (amount0, amount1, mintAmount) = _deposit(
             pool,
-            amount0,
-            amount1,
-            amountETHLeft,
-            wethToken0
+            amount0Use,
+            amount1Use,
+            _mintAmount,
+            receiver
         );
+
+        uint256 leftoverBalance =
+            IERC20(address(weth)).balanceOf(address(this));
+        if (leftoverBalance > 0) {
+            weth.withdraw(leftoverBalance);
+            payable(msg.sender).sendValue(leftoverBalance);
+        }
     }
 
     function removeLiquidity(
         IGUniPool pool,
-        uint256 _burnAmount,
+        uint256 burnAmount,
         uint256 amount0Min,
-        uint256 amount1Min
+        uint256 amount1Min,
+        address receiver
     )
         external
         override
         returns (
             uint256 amount0,
             uint256 amount1,
-            uint256 burnAmount
+            uint128 liquidityBurned
         )
     {
         IERC20(address(pool)).safeTransferFrom(
             msg.sender,
             address(this),
-            _burnAmount
+            burnAmount
         );
-        (amount0, amount1, burnAmount) = pool.burn(_burnAmount);
+        (amount0, amount1, liquidityBurned) = pool.burn(burnAmount, receiver);
         require(
             amount0 >= amount0Min && amount1 >= amount1Min,
             "received below minimum"
         );
-        if (amount0 > 0) {
-            pool.token0().safeTransfer(msg.sender, amount0);
-        }
-        if (amount1 > 0) {
-            pool.token1().safeTransfer(msg.sender, amount1);
-        }
     }
 
     // solhint-disable-next-line code-complexity, function-max-lines
     function removeLiquidityETH(
         IGUniPool pool,
-        uint256 _burnAmount,
+        uint256 burnAmount,
         uint256 amount0Min,
-        uint256 amount1Min
+        uint256 amount1Min,
+        address payable receiver
     )
         external
         override
         returns (
             uint256 amount0,
             uint256 amount1,
-            uint256 burnAmount
+            uint128 liquidityBurned
         )
     {
-        bool wethToken0;
-        if (address(pool.token0()) == address(weth)) {
-            wethToken0 = true;
-        } else if (address(pool.token1()) == address(weth)) {
-            wethToken0 = false;
-        } else {
-            revert("one pool token must be WETH");
-        }
+        bool wethToken0 =
+            isToken0Weth(address(pool.token0()), address(pool.token1()));
 
         IERC20(address(pool)).safeTransferFrom(
             msg.sender,
             address(this),
-            _burnAmount
+            burnAmount
         );
-        (amount0, amount1, burnAmount) = pool.burn(_burnAmount);
+        (amount0, amount1, liquidityBurned) = pool.burn(
+            burnAmount,
+            address(this)
+        );
         require(
             amount0 >= amount0Min && amount1 >= amount1Min,
             "received below minimum"
@@ -312,145 +319,233 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
         if (wethToken0) {
             if (amount0 > 0) {
                 weth.withdraw(amount0);
-                payable(msg.sender).sendValue(amount0);
+                receiver.sendValue(amount0);
             }
             if (amount1 > 0) {
-                pool.token1().safeTransfer(msg.sender, amount1);
+                pool.token1().safeTransfer(receiver, amount1);
             }
         } else {
             if (amount1 > 0) {
                 weth.withdraw(amount1);
-                payable(msg.sender).sendValue(amount1);
+                receiver.sendValue(amount1);
             }
             if (amount0 > 0) {
-                pool.token0().safeTransfer(msg.sender, amount0);
+                pool.token0().safeTransfer(receiver, amount0);
             }
         }
     }
 
-    function _rebalance(
+    function _deposit(
         IGUniPool pool,
-        uint256 _amount0,
-        uint256 _amount1,
-        uint256 swapAmount,
-        uint160 swapThreshold
-    ) internal returns (uint256 amount0, uint256 amount1) {
-        IUniswapV3Pool uniPool = pool.pool();
-        _pool = uniPool;
-        (uint160 sqrtRatioX96, , , , , , ) = uniPool.slot0();
-        (int256 amount0Delta, int256 amount1Delta) =
-            uniPool.swap(
-                msg.sender,
-                swapThreshold < sqrtRatioX96 ? true : false,
-                int256(swapAmount),
-                swapThreshold,
-                abi.encode(msg.sender)
-            );
-        amount0 = uint256(int256(_amount0) - amount0Delta);
-        amount1 = uint256(int256(_amount1) - amount1Delta);
-    }
-
-    // solhint-disable-next-line function-max-lines
-    function _rebalanceETH(
-        IGUniPool pool,
-        uint256 _amount0,
-        uint256 _amount1,
-        uint256 swapAmount,
-        uint160 swapThreshold
+        uint256 amount0In,
+        uint256 amount1In,
+        uint256 _mintAmount,
+        address receiver
     )
         internal
         returns (
             uint256 amount0,
             uint256 amount1,
-            uint256 amountETHLeft,
-            bool wethToken0
+            uint256 mintAmount
         )
     {
-        IUniswapV3Pool uniPool = pool.pool();
-        _pool = uniPool;
-        (uint160 sqrtRatioX96, , , , , , ) = uniPool.slot0();
-
-        bool swappingETH;
-        if (address(pool.token0()) == address(weth)) {
-            require(
-                _amount0 == msg.value,
-                "mismatching amount of ETH forwarded"
-            );
-            swappingETH = swapThreshold < sqrtRatioX96;
-            wethToken0 = true;
-        } else if (address(pool.token1()) == address(weth)) {
-            require(
-                _amount1 == msg.value,
-                "mismatching amount of ETH forwarded"
-            );
-            swappingETH = swapThreshold > sqrtRatioX96;
-        } else {
-            revert("one pool token must be WETH");
+        if (amount0In > 0) {
+            pool.token0().safeIncreaseAllowance(address(pool), amount0In);
+        }
+        if (amount1In > 0) {
+            pool.token1().safeIncreaseAllowance(address(pool), amount1In);
         }
 
-        if (swappingETH) {
-            amountETHLeft = msg.value - swapAmount;
-            weth.deposit{value: swapAmount}();
-            (int256 amount0Delta, int256 amount1Delta) =
-                uniPool.swap(
+        (amount0, amount1, ) = pool.mint(_mintAmount, receiver);
+        require(
+            amount0 == amount0In && amount1 == amount1In,
+            "unexpected amounts deposited"
+        );
+        mintAmount = _mintAmount;
+    }
+
+    function _prepareRebalanceDeposit(
+        IGUniPool pool,
+        uint256 amount0In,
+        uint256 amount1In,
+        bool zeroForOne,
+        uint256 swapAmount,
+        uint160 swapThreshold
+    )
+        internal
+        returns (
+            uint256 amount0Use,
+            uint256 amount1Use,
+            uint256 mintAmount
+        )
+    {
+        if (amount0In > 0) {
+            pool.token0().safeTransferFrom(
+                msg.sender,
+                address(this),
+                amount0In
+            );
+        }
+        if (amount1In > 0) {
+            pool.token1().safeTransferFrom(
+                msg.sender,
+                address(this),
+                amount1In
+            );
+        }
+
+        _swap(pool, zeroForOne, int256(swapAmount), swapThreshold);
+
+        uint256 amount0Max = pool.token0().balanceOf(address(this));
+        uint256 amount1Max = pool.token1().balanceOf(address(this));
+
+        (amount0Use, amount1Use, mintAmount) = _getAmountsAndRefund(
+            pool,
+            amount0Max,
+            amount1Max
+        );
+    }
+
+    // solhint-disable-next-line code-complexity, function-max-lines
+    function _prepareAndRebalanceDepositETH(
+        IGUniPool pool,
+        uint256 amount0In,
+        uint256 amount1In,
+        bool zeroForOne,
+        uint256 swapAmount,
+        uint160 swapThreshold
+    )
+        internal
+        returns (
+            uint256 amount0Use,
+            uint256 amount1Use,
+            uint256 mintAmount
+        )
+    {
+        bool wethToken0 =
+            isToken0Weth(address(pool.token0()), address(pool.token1()));
+
+        if (amount0In > 0) {
+            if (wethToken0) {
+                require(
+                    amount0In == msg.value,
+                    "mismatching amount of ETH forwarded"
+                );
+                weth.deposit{value: amount0In}();
+            } else {
+                pool.token0().safeTransferFrom(
                     msg.sender,
-                    swapThreshold < sqrtRatioX96 ? true : false,
-                    int256(swapAmount),
-                    swapThreshold,
-                    abi.encode(address(this))
-                );
-            amount0 = uint256(int256(_amount0) - amount0Delta);
-            amount1 = uint256(int256(_amount1) - amount1Delta);
-        } else {
-            amountETHLeft = msg.value;
-            (int256 amount0Delta, int256 amount1Delta) =
-                uniPool.swap(
                     address(this),
-                    swapThreshold < sqrtRatioX96 ? true : false,
-                    int256(swapAmount),
-                    swapThreshold,
-                    abi.encode(msg.sender)
+                    amount0In
                 );
-            amount0 = uint256(int256(_amount0) - amount0Delta);
-            amount1 = uint256(int256(_amount1) - amount1Delta);
+            }
+        }
+
+        if (amount1In > 0) {
+            if (wethToken0) {
+                pool.token1().safeTransferFrom(
+                    msg.sender,
+                    address(this),
+                    amount1In
+                );
+            } else {
+                require(
+                    amount1In == msg.value,
+                    "mismatching amount of ETH forwarded"
+                );
+                weth.deposit{value: amount1In}();
+            }
+        }
+
+        _swap(pool, zeroForOne, int256(swapAmount), swapThreshold);
+
+        uint256 amount0Max = pool.token0().balanceOf(address(this));
+        uint256 amount1Max = pool.token1().balanceOf(address(this));
+
+        (amount0Use, amount1Use, mintAmount) = _getAmountsAndRefundExceptETH(
+            pool,
+            amount0Max,
+            amount1Max,
+            wethToken0
+        );
+    }
+
+    function _swap(
+        IGUniPool pool,
+        bool zeroForOne,
+        int256 swapAmount,
+        uint160 swapThreshold
+    ) internal {
+        pool.pool().swap(
+            address(this),
+            zeroForOne,
+            swapAmount,
+            swapThreshold,
+            ""
+        );
+    }
+
+    function _getAmountsAndRefund(
+        IGUniPool pool,
+        uint256 amount0Max,
+        uint256 amount1Max
+    )
+        internal
+        returns (
+            uint256 amount0In,
+            uint256 amount1In,
+            uint256 mintAmount
+        )
+    {
+        (amount0In, amount1In, mintAmount) = pool.getMintAmounts(
+            amount0Max,
+            amount1Max
+        );
+        if (amount0Max > amount0In) {
+            pool.token0().safeTransfer(msg.sender, amount0Max - amount0In);
+        }
+        if (amount1Max > amount1In) {
+            pool.token1().safeTransfer(msg.sender, amount1Max - amount1In);
         }
     }
 
-    // solhint-disable-next-line code-complexity
-    function _depositRebalancedAddLiquidityETH(
+    function _getAmountsAndRefundExceptETH(
         IGUniPool pool,
-        uint256 amount0,
-        uint256 amount1,
-        uint256 amountETHLeft,
+        uint256 amount0Max,
+        uint256 amount1Max,
         bool wethToken0
-    ) internal returns (uint256 mintAmount) {
-        uint256 wethAmount = wethToken0 ? amount0 : amount1;
-        uint256 otherAmount = wethToken0 ? amount1 : amount0;
-        uint256 wethBalance = IERC20(address(weth)).balanceOf(address(this));
-        if (wethAmount > wethBalance) {
-            weth.deposit{value: wethAmount - wethBalance}();
-            amountETHLeft -= wethAmount - wethBalance;
-        }
-        if (amountETHLeft > 0) {
-            payable(msg.sender).sendValue(amountETHLeft);
-        }
-        if (otherAmount > 0 && wethToken0) {
-            pool.token1().safeTransferFrom(msg.sender, address(this), amount1);
-            pool.token1().safeIncreaseAllowance(address(pool), amount1);
-        } else if (otherAmount > 0) {
-            pool.token0().safeTransferFrom(msg.sender, address(this), amount0);
-            pool.token0().safeIncreaseAllowance(address(pool), amount0);
-        }
+    )
+        internal
+        returns (
+            uint256 amount0In,
+            uint256 amount1In,
+            uint256 mintAmount
+        )
+    {
+        (amount0In, amount1In, mintAmount) = pool.getMintAmounts(
+            amount0Max,
+            amount1Max
+        );
 
-        if (wethAmount > 0) {
-            IERC20(address(weth)).safeIncreaseAllowance(
-                address(pool),
-                wethAmount
-            );
+        if (amount0Max > amount0In && !wethToken0) {
+            pool.token0().safeTransfer(msg.sender, amount0Max - amount0In);
+        } else if (amount1Max > amount1In && wethToken0) {
+            pool.token1().safeTransfer(msg.sender, amount1Max - amount1In);
         }
+    }
 
-        (, , mintAmount) = pool.mint(amount0, amount1);
-        IERC20(address(pool)).safeTransfer(msg.sender, mintAmount);
+    function isToken0Weth(address token0, address token1)
+        public
+        view
+        returns (bool wethToken0)
+    {
+        if (token0 == address(weth)) {
+            wethToken0 = true;
+        } else if (token1 == address(weth)) {
+            wethToken0 = false;
+        } else {
+            revert("one pool token must be WETH");
+        }
     }
 
     // solhint-disable-next-line no-empty-blocks
