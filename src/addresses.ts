@@ -2,12 +2,15 @@
 interface Addresses {
   Gelato: string;
   GUNIWethDai: string;
+  GUNIWethUsdc: string;
   Swapper: string;
   GelatoAdmin: string;
   WethDaiV3Pool: string;
+  WethUsdcV3Pool: string;
   UniswapFactory: string;
   WETH: string;
   DAI: string;
+  USDC: string;
   GUNIRouter: string;
 }
 
@@ -20,10 +23,13 @@ export const getAddresses = (network: string): Addresses => {
         Swapper: "",
         GelatoAdmin: "0x163407FDA1a93941358c1bfda39a868599553b6D",
         WethDaiV3Pool: "0xC2e9F25Be6257c210d7Adf0D4Cd6E3E881ba25f8",
-        UniswapFactory: "",
+        UniswapFactory: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
         WETH: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
         DAI: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-        GUNIRouter: "",
+        GUNIRouter: "0x8CA6fa325bc32f86a12cC4964Edf1f71655007A7",
+        USDC: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        WethUsdcV3Pool: "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8",
+        GUNIWethUsdc: "0x584bd540963d5B084F2a6365b97C7664ded95382",
       };
     case "ropsten":
       return {
@@ -36,6 +42,9 @@ export const getAddresses = (network: string): Addresses => {
         WETH: "0xc778417E063141139Fce010982780140Aa0cD5Ab",
         DAI: "0xaD6D458402F60fD3Bd25163575031ACDce07538D",
         GUNIRouter: "0xfC35A62Ede6f49A4e5A03cf134d6989a17BAa55C",
+        USDC: "",
+        WethUsdcV3Pool: "",
+        GUNIWethUsdc: "",
       };
     default:
       throw new Error(`No addresses for Network: ${network}`);
