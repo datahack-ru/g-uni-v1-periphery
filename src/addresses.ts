@@ -12,6 +12,7 @@ interface Addresses {
   DAI: string;
   USDC: string;
   GUNIRouter: string;
+  GUNIResolver: string;
 }
 
 export const getAddresses = (network: string): Addresses => {
@@ -30,6 +31,7 @@ export const getAddresses = (network: string): Addresses => {
         USDC: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
         WethUsdcV3Pool: "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8",
         GUNIWethUsdc: "0x584bd540963d5B084F2a6365b97C7664ded95382",
+        GUNIResolver: "0xC8b92036cf2bfc5aD2116c9b9Fb3cee2d3b3dc89",
       };
     case "ropsten":
       return {
@@ -45,6 +47,7 @@ export const getAddresses = (network: string): Addresses => {
         USDC: "",
         WethUsdcV3Pool: "",
         GUNIWethUsdc: "",
+        GUNIResolver: "",
       };
     default:
       throw new Error(`No addresses for Network: ${network}`);

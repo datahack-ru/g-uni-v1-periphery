@@ -3,9 +3,9 @@
 
 # uni-v3-lp-periphery
 
-router for G-UNI LP tokens (ERC20 wrappers of Uniswap V3 LP positions)
+Router and resolvers for G-UNI LP tokens (ERC20 wrappers of Uniswap V3 LP positions)
 
-# overview
+# router overview
 
 ### addLiquidity
 

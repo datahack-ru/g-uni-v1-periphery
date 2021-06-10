@@ -21,6 +21,10 @@ interface IGUniPool {
 
     function totalSupply() external view returns (uint256);
 
+    function adminBalanceToken0() external view returns (uint256);
+
+    function adminBalanceToken1() external view returns (uint256);
+
     function balanceOf(address account) external view returns (uint256);
 
     function mint(uint256 mintAmount, address receiver)

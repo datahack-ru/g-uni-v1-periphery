@@ -17,16 +17,11 @@ import {
 import {
     IUniswapV3Factory
 } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import {
-    FullMath,
-    LiquidityAmounts
-} from "./vendor/uniswap/LiquidityAmounts.sol";
-import {TickMath} from "./vendor/uniswap/TickMath.sol";
 
 contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
     using Address for address payable;
     using SafeERC20 for IERC20;
-    using TickMath for int24;
+
     IWETH public immutable weth;
     IUniswapV3Factory public immutable factory;
 
@@ -551,38 +546,6 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
         } else {
             revert("one pool token must be WETH");
         }
-    }
-
-    function getPoolUnderlyingBalances(IGUniPool pool)
-        public
-        view
-        override
-        returns (uint256 amount0, uint256 amount1)
-    {
-        IUniswapV3Pool uniPool = pool.pool();
-        (uint128 liquidity, , , , ) = uniPool.positions(pool.getPositionID());
-        (uint160 sqrtPriceX96, , , , , , ) = uniPool.slot0();
-        uint160 lowerSqrtPrice = pool.lowerTick().getSqrtRatioAtTick();
-        uint160 upperSqrtPrice = pool.upperTick().getSqrtRatioAtTick();
-        return
-            LiquidityAmounts.getAmountsForLiquidity(
-                sqrtPriceX96,
-                lowerSqrtPrice,
-                upperSqrtPrice,
-                liquidity
-            );
-    }
-
-    function getUnderlyingBalances(
-        IGUniPool pool,
-        address account,
-        uint256 balance
-    ) external view override returns (uint256 amount0, uint256 amount1) {
-        (uint256 gross0, uint256 gross1) = getPoolUnderlyingBalances(pool);
-        balance = balance == 0 ? pool.balanceOf(account) : balance;
-        uint256 supply = pool.totalSupply();
-        amount0 = FullMath.mulDiv(gross0, balance, supply);
-        amount1 = FullMath.mulDiv(gross1, balance, supply);
     }
 
     // solhint-disable-next-line no-empty-blocks

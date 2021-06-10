@@ -1,8 +1,8 @@
 import { expect } from "chai";
-//import { BigNumber } from "bignumber.js";
 import { ethers, network } from "hardhat";
 import {
   IERC20,
+  GUniResolver,
   GUniRouter,
   IGUniPool,
   IWETH,
@@ -13,7 +13,7 @@ import { getAddresses } from "../src/addresses";
 
 const addresses = getAddresses("ropsten");
 
-describe("GUniRouter", function () {
+describe("GUni Periphery Contracts", function () {
   this.timeout(0);
   let user0: SignerWithAddress;
   //let user1: SignerWithAddress;
@@ -24,6 +24,7 @@ describe("GUniRouter", function () {
   let gUniPool: IGUniPool;
   let gUniRouter: GUniRouter;
   let pool: IUniswapV3Pool;
+  let resolver: GUniResolver;
   before(async function () {
     [user0] = await ethers.getSigners();
 
@@ -53,6 +54,9 @@ describe("GUniRouter", function () {
       addresses.WETH
     )) as GUniRouter;
 
+    const gUniResolverFactory = await ethers.getContractFactory("GUniResolver");
+    resolver = (await gUniResolverFactory.deploy()) as GUniResolver;
+
     const daiFaucet = "0xEB52Ce516a8d054A574905BDc3D4a176D3a2d51a";
     await network.provider.request({
       method: "hardhat_impersonateAccount",
@@ -67,7 +71,7 @@ describe("GUniRouter", function () {
     weth.deposit({ value: ethers.utils.parseEther("500") });
   });
 
-  describe("deposits through router contract", function () {
+  describe("deposits through GUniRouter", function () {
     it("should deposit funds with addLiquidity and addLiquidityETH", async function () {
       await daiToken
         .connect(user0)
@@ -82,6 +86,13 @@ describe("GUniRouter", function () {
       let balanceGUniBefore = await gUniToken.balanceOf(
         await user0.getAddress()
       );
+      await resolver.getRebalanceParams(
+        gUniPool.address,
+        ethers.utils.parseEther("1000"),
+        ethers.utils.parseEther("10"),
+        500
+      );
+
       await gUniRouter.addLiquidity(
         gUniPool.address,
         ethers.utils.parseEther("1000"),
@@ -129,25 +140,6 @@ describe("GUniRouter", function () {
       expect(contractBalanceWeth).to.equal(ethers.constants.Zero);
       expect(contractBalanceG).to.equal(ethers.constants.Zero);
       expect(contractBalanceEth).to.equal(ethers.constants.Zero);
-
-      const { amount0, amount1 } = await gUniRouter.getPoolUnderlyingBalances(
-        gUniPool.address
-      );
-
-      expect(amount0).to.be.gt(ethers.constants.Zero);
-      expect(amount1).to.be.gt(ethers.constants.Zero);
-
-      const { amount0: redeem0, amount1: redeem1 } =
-        await gUniRouter.getUnderlyingBalances(
-          gUniPool.address,
-          await user0.getAddress(),
-          0
-        );
-
-      expect(redeem0).to.be.gt(ethers.constants.Zero);
-      expect(redeem1).to.be.gt(ethers.constants.Zero);
-      expect(redeem0).to.equal(amount0);
-      expect(redeem1).to.equal(amount1);
     });
 
     it("should deposit funds with rebalanceAndAddLiquidity and rebalanceAndAddLiquidityETH", async function () {
@@ -227,7 +219,7 @@ describe("GUniRouter", function () {
       expect(contractBalanceEth).to.equal(ethers.constants.Zero);
     });
   });
-  describe("withdrawal through router contract", function () {
+  describe("withdrawal through GUniRouter", function () {
     it("should withdraw funds with removeLiquidity and removeLiquidityETH", async function () {
       let balanceGUniBefore = await gUniToken.balanceOf(
         await user0.getAddress()
@@ -301,6 +293,79 @@ describe("GUniRouter", function () {
       expect(contractBalanceWeth).to.equal(ethers.constants.Zero);
       expect(contractBalanceG).to.equal(ethers.constants.Zero);
       expect(contractBalanceEth).to.equal(ethers.constants.Zero);
+    });
+  });
+  describe("GUniResolver helper functions", function () {
+    it("should work", async function () {
+      await daiToken
+        .connect(user0)
+        .approve(gUniRouter.address, ethers.utils.parseEther("1000000"));
+      await wethToken
+        .connect(user0)
+        .approve(gUniRouter.address, ethers.utils.parseEther("100000"));
+
+      await gUniRouter.addLiquidity(
+        gUniPool.address,
+        ethers.utils.parseEther("1000"),
+        ethers.utils.parseEther("10"),
+        0,
+        0,
+        await user0.getAddress()
+      );
+      const { sqrtPriceX96 } = await pool.slot0();
+      const twoX96 = ethers.BigNumber.from("2").pow(
+        ethers.BigNumber.from("96")
+      );
+      const intermediate = sqrtPriceX96.mul(sqrtPriceX96).div(twoX96);
+      const price = twoX96.div(intermediate);
+      console.log(price.toString());
+
+      const { amount0, amount1 } = await resolver.getPoolUnderlyingBalances(
+        gUniPool.address
+      );
+      console.log(ethers.utils.formatEther(amount0));
+      console.log(ethers.utils.formatEther(amount1));
+
+      const {
+        zeroForOne: isZeroForOne,
+        swapAmount,
+        swapThreshold,
+      } = await resolver.getRebalanceParams(
+        gUniPool.address,
+        0,
+        ethers.utils.parseEther("1"),
+        500
+      );
+
+      console.log(ethers.utils.formatEther(swapAmount));
+
+      const balanceGUniBefore = await gUniToken.balanceOf(
+        await user0.getAddress()
+      );
+
+      await gUniRouter.rebalanceAndAddLiquidity(
+        gUniPool.address,
+        0,
+        ethers.utils.parseEther("1"),
+        isZeroForOne,
+        swapAmount,
+        swapThreshold,
+        0,
+        0,
+        await user0.getAddress()
+      );
+
+      const balanceGUniAfter = await gUniToken.balanceOf(
+        await user0.getAddress()
+      );
+
+      const balanceChange = balanceGUniAfter.sub(balanceGUniBefore);
+
+      const { amount0: mint0, amount1: mint1 } =
+        await resolver.getUnderlyingBalances(gUniPool.address, balanceChange);
+
+      console.log(ethers.utils.formatEther(mint0));
+      console.log(ethers.utils.formatEther(mint1));
     });
   });
 });

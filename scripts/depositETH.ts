@@ -10,9 +10,9 @@ const op = async (signer: SignerWithAddress) => {
     addresses.GUNIRouter,
     signer
   );
-  const uniPool = await ethers.getContractAt(
-    "IUniswapV3Pool",
-    addresses.WethUsdcV3Pool,
+  const resolver = await ethers.getContractAt(
+    "GUniResolver",
+    addresses.GUNIResolver,
     signer
   );
 
@@ -30,23 +30,34 @@ const op = async (signer: SignerWithAddress) => {
   // @dev change these amounts to your needs
   await weth.approve(router.address, ethers.utils.parseEther("10000"));
   await usdc.approve(router.address, ethers.utils.parseEther("2000000"));
-  const { sqrtPriceX96 } = await uniPool.slot0();
+  /*const { sqrtPriceX96 } = await uniPool.slot0();
   const slippagePrice = sqrtPriceX96.add(
     sqrtPriceX96.div(ethers.BigNumber.from("20"))
+  );*/
+
+  const {
+    zeroForOne: isZeroForOne,
+    swapAmount,
+    swapThreshold,
+  } = await resolver.getRebalanceParams(
+    addresses.GUNIWethUsdc,
+    0,
+    ethers.utils.parseEther("0.04"),
+    100
   );
   await router.rebalanceAndAddLiquidityETH(
     addresses.GUNIWethUsdc,
     0,
-    ethers.utils.parseEther("0.15"),
-    false,
-    ethers.utils.parseEther("0.075"),
-    slippagePrice,
+    ethers.utils.parseEther("0.04"),
+    isZeroForOne,
+    swapAmount,
+    swapThreshold,
     0,
     0,
     await signer.getAddress(),
     {
-      gasLimit: 1000000,
-      value: ethers.utils.parseEther("0.15"),
+      gasLimit: 700000,
+      value: ethers.utils.parseEther("0.04"),
     }
   );
 };
