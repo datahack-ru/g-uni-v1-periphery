@@ -132,6 +132,7 @@ same as removeLiquidity, but WETH is unwrapped before remitted to receiver.
 # resolver overview
 
 ### getRebalanceParams
+
 ```
     function getRebalanceParams(
         IGUniPool pool,
@@ -152,12 +153,14 @@ same as removeLiquidity, but WETH is unwrapped before remitted to receiver.
 If you are performing a rebalanceAndAddliquidity call, how do you know how much asset you should swap to end up with the right proportion of asset0 and asset1 to deposit maximum liquidity possible? Use this helper method to generate the estimate for the swap parameters.
 
 Arguments:
+
 - `pool` address of G-UNI pool
 - `amount0In` amount of asset 0 user wants to deposit
 - `amount1In` amount of asset 1 user wants to deposit
 - `slippageBPS` slippage tolerance in basis points (for 1% slippage should be 100)
 
 Returns:
+
 - `zeroForOne` boolean specifying which asset to input for swap
 - `swapAmount` amount of asset to input for swap
 - `swapThreshold` correct slippage parameter
