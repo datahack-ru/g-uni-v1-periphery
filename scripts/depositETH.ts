@@ -16,7 +16,7 @@ const op = async (signer: SignerWithAddress) => {
     signer
   );
 
-  const weth = await ethers.getContractAt(
+  /*const weth = await ethers.getContractAt(
     ["function approve(address,uint256) external"],
     addresses.WETH,
     signer
@@ -30,10 +30,12 @@ const op = async (signer: SignerWithAddress) => {
   // @dev change these amounts to your needs
   await weth.approve(router.address, ethers.utils.parseEther("10000"));
   await usdc.approve(router.address, ethers.utils.parseEther("2000000"));
-  /*const { sqrtPriceX96 } = await uniPool.slot0();
+  const { sqrtPriceX96 } = await uniPool.slot0();
   const slippagePrice = sqrtPriceX96.add(
     sqrtPriceX96.div(ethers.BigNumber.from("20"))
   );*/
+
+  const amountETH = ethers.utils.parseEther("0.4");
 
   const {
     zeroForOne: isZeroForOne,
@@ -42,13 +44,13 @@ const op = async (signer: SignerWithAddress) => {
   } = await resolver.getRebalanceParams(
     addresses.GUNIWethUsdc,
     0,
-    ethers.utils.parseEther("0.04"),
+    amountETH,
     100
   );
   await router.rebalanceAndAddLiquidityETH(
     addresses.GUNIWethUsdc,
     0,
-    ethers.utils.parseEther("0.04"),
+    amountETH,
     isZeroForOne,
     swapAmount,
     swapThreshold,
@@ -56,8 +58,8 @@ const op = async (signer: SignerWithAddress) => {
     0,
     await signer.getAddress(),
     {
-      gasLimit: 700000,
-      value: ethers.utils.parseEther("0.04"),
+      gasLimit: 600000,
+      value: amountETH,
     }
   );
 };
