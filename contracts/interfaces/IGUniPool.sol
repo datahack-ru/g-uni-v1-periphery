@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: GPL-3.0
-
 pragma solidity 0.8.4;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -20,10 +19,6 @@ interface IGUniPool {
     function pool() external view returns (IUniswapV3Pool);
 
     function totalSupply() external view returns (uint256);
-
-    function adminBalanceToken0() external view returns (uint256);
-
-    function adminBalanceToken1() external view returns (uint256);
 
     function balanceOf(address account) external view returns (uint256);
 
@@ -51,6 +46,11 @@ interface IGUniPool {
             uint256 amount1,
             uint256 mintAmount
         );
+
+    function getUnderlyingBalances()
+        external
+        view
+        returns (uint256 amount0, uint256 amount1);
 
     function getPositionID() external view returns (bytes32 positionID);
 }

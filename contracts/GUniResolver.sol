@@ -25,26 +25,7 @@ contract GUniResolver is IGUniResolver {
         override
         returns (uint256 amount0, uint256 amount1)
     {
-        IUniswapV3Pool uniPool = pool.pool();
-        (uint128 liquidity, , , , ) = uniPool.positions(pool.getPositionID());
-        (uint160 sqrtPriceX96, , , , , , ) = uniPool.slot0();
-        uint160 lowerSqrtPrice = pool.lowerTick().getSqrtRatioAtTick();
-        uint160 upperSqrtPrice = pool.upperTick().getSqrtRatioAtTick();
-        (uint256 amount0Liquidity, uint256 amount1Liquidity) =
-            LiquidityAmounts.getAmountsForLiquidity(
-                sqrtPriceX96,
-                lowerSqrtPrice,
-                upperSqrtPrice,
-                liquidity
-            );
-        amount0 =
-            amount0Liquidity +
-            pool.token0().balanceOf(address(pool)) -
-            pool.adminBalanceToken0();
-        amount1 =
-            amount1Liquidity +
-            pool.token1().balanceOf(address(pool)) -
-            pool.adminBalanceToken1();
+        return pool.getUnderlyingBalances();
     }
 
     function getUnderlyingBalances(IGUniPool pool, uint256 balance)
@@ -53,7 +34,7 @@ contract GUniResolver is IGUniResolver {
         override
         returns (uint256 amount0, uint256 amount1)
     {
-        (uint256 gross0, uint256 gross1) = getPoolUnderlyingBalances(pool);
+        (uint256 gross0, uint256 gross1) = pool.getUnderlyingBalances();
         uint256 supply = pool.totalSupply();
         amount0 = FullMath.mulDiv(gross0, balance, supply);
         amount1 = FullMath.mulDiv(gross1, balance, supply);
@@ -130,7 +111,7 @@ contract GUniResolver is IGUniResolver {
         view
         returns (uint256 gross0, uint256 gross1)
     {
-        (gross0, gross1) = getPoolUnderlyingBalances(pool);
+        (gross0, gross1) = pool.getUnderlyingBalances();
         if (gross0 == 0 && gross1 == 0) {
             uint160 lowerSqrtPrice = pool.lowerTick().getSqrtRatioAtTick();
             uint160 upperSqrtPrice = pool.upperTick().getSqrtRatioAtTick();
