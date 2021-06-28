@@ -30,6 +30,7 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
         factory = _factory;
     }
 
+    /// @notice Uniswap v3 callback fn, called back on pool.swap
     // solhint-disable-next-line code-complexity
     function uniswapV3SwapCallback(
         int256 amount0Delta,
@@ -52,6 +53,16 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
             IERC20(token1).safeTransfer(msg.sender, uint256(amount1Delta));
     }
 
+    /// @notice addLiquidity adds liquidity to G-UNI pool of interest (mints G-UNI LP tokens)
+    /// @param pool address of G-UNI pool to add liquidity to
+    /// @param amount0Max the maximum amount of token0 msg.sender willing to input
+    /// @param amount1Max the maximum amount of token1 msg.sender willing to input
+    /// @param amount0Min the minimum amount of token0 actually input (slippage protection)
+    /// @param amount1Min the minimum amount of token1 actually input (slippage protection)
+    /// @param receiver account to receive minted G-UNI tokens
+    /// @return amount0 amount of token0 transferred from msg.sender to mint `mintAmount`
+    /// @return amount1 amount of token1 transferred from msg.sender to mint `mintAmount`
+    /// @return mintAmount amount of G-UNI tokens minted and transferred to `receiver`
     function addLiquidity(
         IGUniPool pool,
         uint256 amount0Max,
@@ -92,6 +103,7 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
         return _deposit(pool, amount0In, amount1In, _mintAmount, receiver);
     }
 
+    /// @notice addLiquidityETH same as addLiquidity but expects ETH transfers (instead of WETH)
     // solhint-disable-next-line code-complexity, function-max-lines
     function addLiquidityETH(
         IGUniPool pool,
@@ -168,6 +180,23 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
         }
     }
 
+    /// @notice rebalanceAndAddLiquidity accomplishes same task as addLiquidity/addLiquidityETH
+    /// but msg.sender rebalances their holdings (performs a swap) before adding liquidity.
+    /// @param pool address of G-UNI pool to add liquidity to
+    /// @param amount0In the amount of token0 msg.sender forwards to router
+    /// @param amount1In the amount of token1 msg.sender forwards to router
+    /// @param zeroForOne Which token to swap (true = token0, false = token1)
+    /// @param swapAmount the amount of token to swap
+    /// @param swapThreshold the slippage parameter of the swap as a min or max sqrtPriceX96
+    /// @param amount0Min the minimum amount of token0 actually deposited (slippage protection)
+    /// @param amount1Min the minimum amount of token1 actually deposited (slippage protection)
+    /// @param receiver account to receive minted G-UNI tokens
+    /// @return amount0 amount of token0 actually deposited into pool
+    /// @return amount1 amount of token1 actually deposited into pool
+    /// @return mintAmount amount of G-UNI tokens minted and transferred to `receiver`
+    /// @dev because router performs a swap on behalf of msg.sender and slippage is possible
+    /// some value unused in mint can be returned to msg.sender in token0 and token1 make sure
+    /// to consult return values or measure balance changes after a rebalanceAndAddLiquidity call.
     // solhint-disable-next-line function-max-lines
     function rebalanceAndAddLiquidity(
         IGUniPool pool,
@@ -205,6 +234,8 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
         return _deposit(pool, amount0Use, amount1Use, _mintAmount, receiver);
     }
 
+    /// @notice rebalanceAndAddLiquidityETH same as rebalanceAndAddLiquidity
+    /// except this function expects ETH transfer (instead of WETH)
     // solhint-disable-next-line function-max-lines, code-complexity
     function rebalanceAndAddLiquidityETH(
         IGUniPool pool,
@@ -256,6 +287,14 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
         }
     }
 
+    /// @notice removeLiquidity removes liquidity from a G-UNI pool and burns G-UNI LP tokens
+    /// @param burnAmount The number of G-UNI tokens to burn
+    /// @param amount0Min Minimum amount of token0 received after burn (slippage protection)
+    /// @param amount1Min Minimum amount of token1 received after burn (slippage protection)
+    /// @param receiver The account to receive the underlying amounts of token0 and token1
+    /// @return amount0 actual amount of token0 transferred to receiver for burning `burnAmount`
+    /// @return amount1 actual amount of token1 transferred to receiver for burning `burnAmount`
+    /// @return liquidityBurned amount of liquidity removed from the underlying Uniswap V3 position
     function removeLiquidity(
         IGUniPool pool,
         uint256 burnAmount,
@@ -283,6 +322,8 @@ contract GUniRouter is IGUniRouter, IUniswapV3SwapCallback {
         );
     }
 
+    /// @notice removeLiquidityETH same as removeLiquidity
+    /// except this function unwraps WETH and sends ETH to receiver account
     // solhint-disable-next-line code-complexity, function-max-lines
     function removeLiquidityETH(
         IGUniPool pool,

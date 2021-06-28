@@ -27,30 +27,38 @@ describe("GUni Periphery Contracts", function () {
   let resolver: GUniResolver;
   before(async function () {
     [user0] = await ethers.getSigners();
-
+    const gUniFactory = await ethers.getContractAt(
+      [
+        "function getPoolAddress(address,address,address,uint24) external view returns(address)",
+      ],
+      addresses.GUniFactory
+    );
+    const poolAddress = await gUniFactory.getPoolAddress(
+      "0x4B5BaD436CcA8df3bD39A095b84991fAc9A226F1",
+      addresses.WETH,
+      addresses.DAI,
+      3000
+    );
     gUniPool = (await ethers.getContractAt(
       "IGUniPool",
-      addresses.GUNIWethDai
+      poolAddress
     )) as IGUniPool;
     wethToken = (await ethers.getContractAt(
       "IERC20",
       addresses.WETH
     )) as IERC20;
     daiToken = (await ethers.getContractAt("IERC20", addresses.DAI)) as IERC20;
-    gUniToken = (await ethers.getContractAt(
-      "IERC20",
-      addresses.GUNIWethDai
-    )) as IERC20;
+    gUniToken = (await ethers.getContractAt("IERC20", poolAddress)) as IERC20;
 
     pool = (await ethers.getContractAt(
       "IUniswapV3Pool",
-      addresses.WethDaiV3Pool
+      await gUniPool.pool()
     )) as IUniswapV3Pool;
 
     const gUniRouterFactory = await ethers.getContractFactory("GUniRouter");
 
     gUniRouter = (await gUniRouterFactory.deploy(
-      addresses.UniswapFactory,
+      addresses.UniswapV3Factory,
       addresses.WETH
     )) as GUniRouter;
 
