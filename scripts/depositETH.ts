@@ -7,61 +7,87 @@ const addresses = getAddresses(network.name);
 const op = async (signer: SignerWithAddress) => {
   const router = await ethers.getContractAt(
     "GUniRouter",
-    addresses.GUNIRouter,
+    addresses.GUniRouter,
     signer
   );
   const resolver = await ethers.getContractAt(
     "GUniResolver",
-    addresses.GUNIResolver,
+    addresses.GUniResolver,
     signer
   );
 
-  /*const weth = await ethers.getContractAt(
+  const weth = await ethers.getContractAt(
     ["function approve(address,uint256) external"],
     addresses.WETH,
     signer
   );
-  const usdc = await ethers.getContractAt(
+  const dai = await ethers.getContractAt(
     ["function approve(address,uint256) external"],
-    addresses.USDC,
+    addresses.DAI,
     signer
   );
 
+  const gUniFactory = await ethers.getContractAt(
+    [
+      "function getPoolAddress(address, address, address, uint24) external view returns(address)",
+    ],
+    addresses.GUniFactory,
+    signer
+  );
+
+  const gUniPoolAddress = await gUniFactory.getPoolAddress(
+    await signer.getAddress(),
+    addresses.WETH,
+    addresses.DAI,
+    3000
+  );
+
+  console.log("gUniPoolAddress:", gUniPoolAddress);
+
   // @dev change these amounts to your needs
   await weth.approve(router.address, ethers.utils.parseEther("10000"));
-  await usdc.approve(router.address, ethers.utils.parseEther("2000000"));
-  const { sqrtPriceX96 } = await uniPool.slot0();
-  const slippagePrice = sqrtPriceX96.add(
-    sqrtPriceX96.div(ethers.BigNumber.from("20"))
-  );*/
+  await dai.approve(router.address, ethers.utils.parseEther("2000000"));
 
-  const amountETH = ethers.utils.parseEther("0.4");
+  const amountETH = ethers.utils.parseEther("0.1");
 
   const {
     zeroForOne: isZeroForOne,
     swapAmount,
     swapThreshold,
-  } = await resolver.getRebalanceParams(
-    addresses.GUNIWethUsdc,
-    0,
-    amountETH,
-    100
-  );
-  await router.rebalanceAndAddLiquidityETH(
-    addresses.GUNIWethUsdc,
-    0,
-    amountETH,
-    isZeroForOne,
-    swapAmount,
-    swapThreshold,
-    0,
-    0,
-    await signer.getAddress(),
-    {
-      gasLimit: 600000,
-      value: amountETH,
-    }
-  );
+  } = await resolver.getRebalanceParams(gUniPoolAddress, 0, amountETH, 1000);
+
+  if (Number(ethers.utils.formatEther(swapAmount)) == 0) {
+    console.log("calling addLiquidityETH...");
+    await router.addLiquidityETH(
+      gUniPoolAddress,
+      0,
+      amountETH,
+      0,
+      0,
+      await signer.getAddress(),
+      {
+        gasLimit: 600000,
+        value: amountETH,
+      }
+    );
+  } else {
+    console.log("calling rebalanceAndAddLiquidityETH...");
+    await router.rebalanceAndAddLiquidityETH(
+      gUniPoolAddress,
+      0,
+      amountETH,
+      isZeroForOne,
+      swapAmount,
+      swapThreshold,
+      0,
+      0,
+      await signer.getAddress(),
+      {
+        gasLimit: 800000,
+        value: amountETH,
+      }
+    );
+  }
 };
 
 (async () => {

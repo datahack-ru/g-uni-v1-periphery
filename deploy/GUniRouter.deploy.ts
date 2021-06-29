@@ -21,7 +21,7 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 
   await deploy("GUniRouter", {
     from: deployer,
-    args: [addresses.UniswapFactory, addresses.WETH],
+    args: [addresses.UniswapV3Factory, addresses.WETH],
   });
 };
 
