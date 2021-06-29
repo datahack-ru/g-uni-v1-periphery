@@ -28,17 +28,11 @@ describe("GUni Periphery Contracts", function () {
   before(async function () {
     [user0] = await ethers.getSigners();
     const gUniFactory = await ethers.getContractAt(
-      [
-        "function getPoolAddress(address,address,address,uint24) external view returns(address)",
-      ],
+      ["function getGelatoPools() external view returns(address[] memory)"],
       addresses.GUniFactory
     );
-    const poolAddress = await gUniFactory.getPoolAddress(
-      "0x4B5BaD436CcA8df3bD39A095b84991fAc9A226F1",
-      addresses.WETH,
-      addresses.DAI,
-      3000
-    );
+    const pools = await gUniFactory.getGelatoPools();
+    const poolAddress = pools[0];
     gUniPool = (await ethers.getContractAt(
       "IGUniPool",
       poolAddress

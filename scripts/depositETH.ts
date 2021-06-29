@@ -28,19 +28,13 @@ const op = async (signer: SignerWithAddress) => {
   );
 
   const gUniFactory = await ethers.getContractAt(
-    [
-      "function getPoolAddress(address, address, address, uint24) external view returns(address)",
-    ],
+    ["function getGelatoPools() external view returns(address[] memory)"],
     addresses.GUniFactory,
     signer
   );
 
-  const gUniPoolAddress = await gUniFactory.getPoolAddress(
-    await signer.getAddress(),
-    addresses.WETH,
-    addresses.DAI,
-    3000
-  );
+  const gUniPools = await gUniFactory.getGelatoPools();
+  const gUniPoolAddress = gUniPools[0];
 
   console.log("gUniPoolAddress:", gUniPoolAddress);
 
