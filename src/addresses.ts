@@ -38,7 +38,7 @@ export const getAddresses = (network: string): Addresses => {
         GUniRouter: "0xfC35A62Ede6f49A4e5A03cf134d6989a17BAa55C",
         USDC: "",
         GUniResolver: "0xAE9D90e23538Be0c8Cad559B2b97F67bF87cb93b",
-        GUniFactory: "0xDC012b00bc522E7a09D00Ad08D001a17D0A23493",
+        GUniFactory: "0xCe23a1A2B2b18A2fEC300D3DB48f543E9d66BC08",
       };
     default:
       throw new Error(`No addresses for Network: ${network}`);
