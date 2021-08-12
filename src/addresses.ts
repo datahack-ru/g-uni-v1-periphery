@@ -10,6 +10,7 @@ interface Addresses {
   GUniRouter: string;
   GUniResolver: string;
   GUniFactory: string;
+  OneInchRouter: string;
 }
 
 export const getAddresses = (network: string): Addresses => {
@@ -26,6 +27,7 @@ export const getAddresses = (network: string): Addresses => {
         USDC: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
         GUniResolver: "0x3B01f3534c9505fE8e7cf42794a545A0d2ede976",
         GUniFactory: "",
+        OneInchRouter: "0x11111112542D85B3EF69AE05771c2dCCff4fAa26",
       };
     case "ropsten":
       return {
@@ -39,6 +41,7 @@ export const getAddresses = (network: string): Addresses => {
         USDC: "",
         GUniResolver: "0xAE9D90e23538Be0c8Cad559B2b97F67bF87cb93b",
         GUniFactory: "0xCe23a1A2B2b18A2fEC300D3DB48f543E9d66BC08",
+        OneInchRouter: "",
       };
     default:
       throw new Error(`No addresses for Network: ${network}`);
