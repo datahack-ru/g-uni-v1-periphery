@@ -26,7 +26,7 @@ export const getAddresses = (network: string): Addresses => {
         GUniRouter: "0x8CA6fa325bc32f86a12cC4964Edf1f71655007A7",
         USDC: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
         GUniResolver: "0x3B01f3534c9505fE8e7cf42794a545A0d2ede976",
-        GUniFactory: "",
+        GUniFactory: "0xEA1aFf9dbFfD1580F6b81A3ad3589E66652dB7D9",
         OneInchRouter: "0x11111112542D85B3EF69AE05771c2dCCff4fAa26",
       };
     case "ropsten":

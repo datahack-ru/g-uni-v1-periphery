@@ -14,17 +14,16 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {
     IUniswapV3Factory
 } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import {GelatoBytes} from "./vendor/gelato/GelatoBytes.sol";
 
 contract GUniRouter02 is IGUniRouter02 {
     using Address for address payable;
     using SafeERC20 for IERC20;
 
     IWETH public immutable weth;
-    address public immutable oneInch;
 
-    constructor(address _oneInch, IWETH _weth) {
+    constructor(IWETH _weth) {
         weth = _weth;
-        oneInch = _oneInch;
     }
 
     /// @notice addLiquidity adds liquidity to G-UNI pool of interest (mints G-UNI LP tokens)
@@ -159,8 +158,8 @@ contract GUniRouter02 is IGUniRouter02 {
     /// @param pool address of G-UNI pool to add liquidity to
     /// @param amount0In the amount of token0 msg.sender forwards to router
     /// @param amount1In the amount of token1 msg.sender forwards to router
-    /// @param swapToken input token for 1inch swap
-    /// @param swapPayload1Inch payload for 1inch swap
+    /// @param swapActions addresses for swap calls
+    /// @param swapDatas payloads for swap calls
     /// @param amount0Min the minimum amount of token0 actually deposited (slippage protection)
     /// @param amount1Min the minimum amount of token1 actually deposited (slippage protection)
     /// @param receiver account to receive minted G-UNI tokens
@@ -175,8 +174,8 @@ contract GUniRouter02 is IGUniRouter02 {
         IGUniPool pool,
         uint256 amount0In,
         uint256 amount1In,
-        address swapToken,
-        bytes calldata swapPayload1Inch,
+        address[] memory swapActions,
+        bytes[] memory swapDatas,
         uint256 amount0Min,
         uint256 amount1Min,
         address receiver
@@ -189,18 +188,13 @@ contract GUniRouter02 is IGUniRouter02 {
             uint256 mintAmount
         )
     {
-        require(
-            address(pool.token0()) == swapToken ||
-                address(pool.token1()) == swapToken,
-            "invalid swap token"
-        );
         (uint256 amount0Use, uint256 amount1Use, uint256 _mintAmount) =
             _prepareRebalanceDeposit(
                 pool,
                 amount0In,
                 amount1In,
-                swapToken,
-                swapPayload1Inch
+                swapActions,
+                swapDatas
             );
         require(
             amount0Use >= amount0Min && amount1Use >= amount1Min,
@@ -217,8 +211,8 @@ contract GUniRouter02 is IGUniRouter02 {
         IGUniPool pool,
         uint256 amount0In,
         uint256 amount1In,
-        address swapToken,
-        bytes calldata swapPayload1Inch,
+        address[] memory swapActions,
+        bytes[] memory swapDatas,
         uint256 amount0Min,
         uint256 amount1Min,
         address receiver
@@ -232,18 +226,13 @@ contract GUniRouter02 is IGUniRouter02 {
             uint256 mintAmount
         )
     {
-        require(
-            address(pool.token0()) == swapToken ||
-                address(pool.token1()) == swapToken,
-            "invalid swap token"
-        );
         (uint256 amount0Use, uint256 amount1Use, uint256 _mintAmount) =
             _prepareAndRebalanceDepositETH(
                 pool,
                 amount0In,
                 amount1In,
-                swapToken,
-                swapPayload1Inch
+                swapActions,
+                swapDatas
             );
         require(
             amount0Use >= amount0Min && amount1Use >= amount1Min,
@@ -388,8 +377,8 @@ contract GUniRouter02 is IGUniRouter02 {
         IGUniPool pool,
         uint256 amount0In,
         uint256 amount1In,
-        address swapToken,
-        bytes calldata swapPayload1Inch
+        address[] memory swapActions,
+        bytes[] memory swapDatas
     )
         internal
         returns (
@@ -413,7 +402,7 @@ contract GUniRouter02 is IGUniRouter02 {
             );
         }
 
-        _swap(swapToken, swapPayload1Inch);
+        _swap(swapActions, swapDatas);
 
         uint256 amount0Max = pool.token0().balanceOf(address(this));
         uint256 amount1Max = pool.token1().balanceOf(address(this));
@@ -430,8 +419,8 @@ contract GUniRouter02 is IGUniRouter02 {
         IGUniPool pool,
         uint256 amount0In,
         uint256 amount1In,
-        address swapToken,
-        bytes calldata swapPayload1Inch
+        address[] memory swapActions,
+        bytes[] memory swapDatas
     )
         internal
         returns (
@@ -475,7 +464,7 @@ contract GUniRouter02 is IGUniRouter02 {
             }
         }
 
-        _swap(swapToken, swapPayload1Inch);
+        _swap(swapActions, swapDatas);
 
         uint256 amount0Max = pool.token0().balanceOf(address(this));
         uint256 amount1Max = pool.token1().balanceOf(address(this));
@@ -488,13 +477,22 @@ contract GUniRouter02 is IGUniRouter02 {
         );
     }
 
-    function _swap(address swapToken, bytes calldata swapPayload1Inch)
+    function _swap(address[] memory _swapActions, bytes[] memory _swapDatas)
         internal
     {
-        IERC20(swapToken).safeApprove(oneInch, type(uint256).max);
-        (bool success, ) = oneInch.call(swapPayload1Inch);
-        require(success, "swap reverted");
-        IERC20(swapToken).safeApprove(oneInch, 0);
+        require(
+            _swapActions.length == _swapDatas.length,
+            "swap actions length != swap datas length"
+        );
+
+        for (uint256 i; i < _swapActions.length; i++) {
+            {
+                (bool success, bytes memory returnsData) =
+                    _swapActions[i].call(_swapDatas[i]);
+                if (!success)
+                    GelatoBytes.revertWithError(returnsData, "swap: ");
+            }
+        }
     }
 
     function _getAmountsAndRefund(

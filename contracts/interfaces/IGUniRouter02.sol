@@ -40,8 +40,8 @@ interface IGUniRouter02 {
         IGUniPool pool,
         uint256 amount0In,
         uint256 amount1In,
-        address swapToken,
-        bytes calldata swapPayload1Inch,
+        address[] memory swapActions,
+        bytes[] memory swapDatas,
         uint256 amount0Min,
         uint256 amount1Min,
         address receiver
@@ -57,8 +57,8 @@ interface IGUniRouter02 {
         IGUniPool pool,
         uint256 amount0In,
         uint256 amount1In,
-        address swapToken,
-        bytes calldata swapPayload1Inch,
+        address[] memory swapActions,
+        bytes[] memory swapDatas,
         uint256 amount0Min,
         uint256 amount1Min,
         address receiver
