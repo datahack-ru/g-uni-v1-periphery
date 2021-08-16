@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers, network } from "hardhat";
-import { IERC20, GUniRouter02, IGUniPool } from "../typechain";
+import { IERC20, GUniResolver, GUniRouter02, IGUniPool } from "../typechain";
 import fetch from "node-fetch";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { getAddresses } from "../src/addresses";
@@ -47,7 +47,7 @@ const swapTokenData = async (
   try {
     const apiResponse = (await (
       await fetch(
-        `https://api.1inch.exchange/v3.0/${networkId}/swap?fromTokenAddress=${fromTokenAddress}&toTokenAddress=${toTokenAddress}&amount=${amount}&fromAddress=${fromAddress}&slippage=${slippage}&disableEstimate=true`
+        `https://api.1inch.exchange/v3.0/${networkId}/swap?fromTokenAddress=${fromTokenAddress}&toTokenAddress=${toTokenAddress}&amount=${amount}&fromAddress=${fromAddress}&slippage=${slippage}&disableEstimate=true&protocols=CURVE`
       )
     ).json()) as unknown as {
       tx: {
@@ -72,6 +72,30 @@ const swapTokenData = async (
   }
 };
 
+const quote1Inch = async (
+  networkId: string,
+  fromTokenAddress: string,
+  toTokenAddress: string,
+  amount: string
+): Promise<string> => {
+  try {
+    const apiResponse = (await (
+      await fetch(
+        `https://api.1inch.exchange/v3.0/${networkId}/quote?fromTokenAddress=${fromTokenAddress}&toTokenAddress=${toTokenAddress}&amount=${amount}&protocols=CURVE`
+      )
+    ).json()) as unknown as {
+      toTokenAmount: string;
+    };
+
+    return apiResponse.toTokenAmount;
+  } catch (error) {
+    console.log(
+      `1Inch quote call failed, wanted to quote swap of ${amount} amount of ${fromTokenAddress} to ${toTokenAddress}. Error : ${error}`
+    );
+    throw new Error(`swapTokenData: 1Inch swap data call failed.`);
+  }
+};
+
 describe("GUni Periphery Contracts", function () {
   this.timeout(0);
   let user0: SignerWithAddress;
@@ -81,6 +105,7 @@ describe("GUni Periphery Contracts", function () {
   let gUniToken: IERC20;
   let gUniPool: IGUniPool;
   let gUniRouter: GUniRouter02;
+  let gUniResolver: GUniResolver;
   //let pool: IUniswapV3Pool;
   before(async function () {
     [user0] = await ethers.getSigners();
@@ -107,8 +132,8 @@ describe("GUni Periphery Contracts", function () {
       addresses.WETH
     )) as GUniRouter02;
 
-    //const gUniResolverFactory = await ethers.getContractFactory("GUniResolver");
-    //resolver = (await gUniResolverFactory.deploy()) as GUniResolver;
+    const gUniResolverFactory = await ethers.getContractFactory("GUniResolver");
+    gUniResolver = (await gUniResolverFactory.deploy()) as GUniResolver;
 
     const daiFaucet = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436";
     await network.provider.request({
@@ -173,8 +198,14 @@ describe("GUni Periphery Contracts", function () {
       expect(balanceUsdcBefore).to.be.gt(balanceUsdcAfter);
       expect(balanceGUniBefore).to.be.lt(balanceGUniAfter);
 
-      //console.log("DAI deposit:", balanceDaiBefore.sub(balanceDaiAfter).toString())
-      //console.log("USDC deposit:", balanceUsdcBefore.sub(balanceUsdcAfter).toString())
+      console.log(
+        "DAI deposit:",
+        ethers.utils.formatEther(balanceDaiBefore.sub(balanceDaiAfter))
+      );
+      console.log(
+        "USDC deposit:",
+        ethers.utils.formatUnits(balanceUsdcBefore.sub(balanceUsdcAfter), "6")
+      );
       //console.log("G-UNI minted:", balanceGUniAfter.sub(balanceGUniBefore).toString())
 
       const contractBalanceDai = await daiToken.balanceOf(gUniRouter.address);
@@ -186,14 +217,13 @@ describe("GUni Periphery Contracts", function () {
       expect(contractBalanceG).to.equal(ethers.constants.Zero);
     });
 
-    it("should deposit funds with rebalanceAndAddLiquidity and rebalanceAndAddLiquidityETH", async function () {
+    it("should deposit funds with rebalanceAndAddLiquidity", async function () {
       await daiToken
         .connect(user0)
         .approve(gUniRouter.address, ethers.utils.parseEther("1000000"));
       await usdcToken
         .connect(user0)
         .approve(gUniRouter.address, ethers.utils.parseEther("1000000"));
-      //console.log("    skipping for now...");
       const balanceDaiBefore = await daiToken.balanceOf(
         await user0.getAddress()
       );
@@ -203,26 +233,99 @@ describe("GUni Periphery Contracts", function () {
       const balanceGUniBefore = await gUniToken.balanceOf(
         await user0.getAddress()
       );
+      const spendAmountUSDC = 100000 * 10 ** 6;
+      const spendAmountDAI = ethers.utils.parseEther("100000");
+
+      await new Promise((r) => setTimeout(r, 2000));
+      const quoteAmount = await quote1Inch(
+        "1",
+        addresses.USDC,
+        addresses.DAI,
+        spendAmountUSDC.toString()
+      );
+
+      const denominator = ethers.BigNumber.from(quoteAmount).mul(
+        ethers.BigNumber.from((10 ** 6).toString())
+      );
+      const numerator = ethers.BigNumber.from(spendAmountUSDC.toString()).mul(
+        ethers.utils.parseEther("1")
+      );
+      const priceX18 = numerator
+        .mul(ethers.utils.parseEther("1"))
+        .div(denominator);
+
+      const result = await gUniResolver.getRebalanceParams(
+        gUniPool.address,
+        spendAmountDAI,
+        spendAmountUSDC.toString(),
+        priceX18
+      );
+      expect(result.zeroForOne).to.be.false;
+
+      const quoteAmount2 = await quote1Inch(
+        "1",
+        addresses.USDC,
+        addresses.DAI,
+        result.swapAmount.toString()
+      );
+
+      const denominator2 = ethers.BigNumber.from(quoteAmount2).mul(
+        ethers.BigNumber.from((10 ** 6).toString())
+      );
+      const numerator2 = result.swapAmount.mul(ethers.utils.parseEther("1"));
+      const price2 = numerator2
+        .mul(ethers.utils.parseEther("1"))
+        .div(denominator2);
+
+      const result2 = await gUniResolver.getRebalanceParams(
+        gUniPool.address,
+        spendAmountDAI,
+        spendAmountUSDC.toString(),
+        price2
+      );
+      expect(result2.zeroForOne).to.be.false;
+
+      /*console.log("swap amount:", ethers.utils.formatUnits(result2.swapAmount, "6"));
+
+      const quoteAmount3 = await quote1Inch(
+        "1",
+        addresses.USDC,
+        addresses.DAI,
+        result2.swapAmount.toString()
+      );
+      console.log("quoteAmount3?", quoteAmount3);
+      console.log("return amount:", ethers.utils.formatEther(ethers.BigNumber.from(quoteAmount3)));
+
+      const amountDAIIn = spendAmountDAI.add(ethers.BigNumber.from(quoteAmount2))
+      const amountUSDCIn = ethers.BigNumber.from(spendAmountUSDC.toString()).sub(result.swapAmount)
+      const mintAmounts = await gUniPool.getMintAmounts(
+        amountDAIIn,
+        amountUSDCIn,
+      );
+
+      console.log("dai expected:", ethers.utils.formatEther(mintAmounts.amount0))
+      console.log("usdc expected:", ethers.utils.formatUnits(mintAmounts.amount1, "6"))
+      console.log("get swap params...")*/
 
       const swapParams = await swapTokenData(
         "1",
         addresses.USDC,
         addresses.DAI,
-        (60000 * 10 ** 6).toString(),
+        result2.swapAmount.toString(),
         gUniRouter.address,
-        "2"
+        "10"
       );
 
       const approveParams = await approveTokenData(
         "1",
         addresses.USDC,
-        (60000 * 10 ** 6).toString()
+        result2.swapAmount.toString()
       );
 
       await gUniRouter.rebalanceAndAddLiquidity(
         gUniPool.address,
-        ethers.utils.parseEther("100000"),
-        (100000 * 10 ** 6).toString(),
+        spendAmountDAI,
+        spendAmountUSDC.toString(),
         [approveParams.to, swapParams.to],
         [approveParams.data, swapParams.data],
         0,
@@ -240,13 +343,19 @@ describe("GUni Periphery Contracts", function () {
         await user0.getAddress()
       );
 
-      //console.log("DAI deposit:", balanceDaiBefore.sub(balanceDaiAfter).toString())
-      //console.log("USDC deposit:", balanceUsdcBefore.sub(balanceUsdcAfter).toString())
-      //console.log("G-UNI minted:", balanceGUniAfter.sub(balanceGUniBefore).toString())
-
       expect(balanceDaiBefore).to.be.gt(balanceDaiAfter);
       expect(balanceUsdcBefore).to.be.gt(balanceUsdcAfter);
       expect(balanceGUniBefore).to.be.lt(balanceGUniAfter);
+
+      console.log(
+        "DAI deposit:",
+        ethers.utils.formatEther(balanceDaiBefore.sub(balanceDaiAfter))
+      );
+      console.log(
+        "USDC deposit:",
+        ethers.utils.formatUnits(balanceUsdcBefore.sub(balanceUsdcAfter), "6")
+      );
+      //console.log("G-UNI minted:", balanceGUniAfter.sub(balanceGUniBefore).toString())
 
       const diffGUni = balanceGUniAfter.sub(balanceGUniBefore);
       expect(balanceGUniBefore).to.be.lt(diffGUni);

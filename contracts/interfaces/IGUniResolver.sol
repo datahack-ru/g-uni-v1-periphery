@@ -10,7 +10,7 @@ interface IGUniResolver {
         view
         returns (uint256 amount0, uint256 amount1);
 
-    function getPoolUnderlyingBalances(IGUniPool pool)
+    function getUnderlyingBalances(IGUniPool pool)
         external
         view
         returns (uint256 amount0, uint256 amount1);
@@ -19,13 +19,6 @@ interface IGUniResolver {
         IGUniPool pool,
         uint256 amount0In,
         uint256 amount1In,
-        uint16 slippageBPS
-    )
-        external
-        view
-        returns (
-            bool zeroForOne,
-            uint256 swapAmount,
-            uint160 swapThreshold
-        );
+        uint256 price18Decimals
+    ) external view returns (bool zeroForOne, uint256 swapAmount);
 }

@@ -4,16 +4,12 @@ pragma solidity 0.8.4;
 
 import {IGUniRouter02} from "./interfaces/IGUniRouter02.sol";
 import {IGUniPool} from "./interfaces/IGUniPool.sol";
-import {IUniswapV3Pool} from "./interfaces/IUniswapV3Pool.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
 import {
     IERC20,
     SafeERC20
 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {
-    IUniswapV3Factory
-} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import {GelatoBytes} from "./vendor/gelato/GelatoBytes.sol";
 
 contract GUniRouter02 is IGUniRouter02 {
