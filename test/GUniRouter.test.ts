@@ -198,7 +198,7 @@ describe("GUni Periphery Contracts", function () {
       expect(balanceUsdcBefore).to.be.gt(balanceUsdcAfter);
       expect(balanceGUniBefore).to.be.lt(balanceGUniAfter);
 
-      console.log(
+      /*console.log(
         "DAI deposit:",
         ethers.utils.formatEther(balanceDaiBefore.sub(balanceDaiAfter))
       );
@@ -206,7 +206,7 @@ describe("GUni Periphery Contracts", function () {
         "USDC deposit:",
         ethers.utils.formatUnits(balanceUsdcBefore.sub(balanceUsdcAfter), "6")
       );
-      //console.log("G-UNI minted:", balanceGUniAfter.sub(balanceGUniBefore).toString())
+      console.log("G-UNI minted:", balanceGUniAfter.sub(balanceGUniBefore).toString())*/
 
       const contractBalanceDai = await daiToken.balanceOf(gUniRouter.address);
       const contractBalanceWeth = await usdcToken.balanceOf(gUniRouter.address);
@@ -347,7 +347,7 @@ describe("GUni Periphery Contracts", function () {
       expect(balanceUsdcBefore).to.be.gt(balanceUsdcAfter);
       expect(balanceGUniBefore).to.be.lt(balanceGUniAfter);
 
-      console.log(
+      /*console.log(
         "DAI deposit:",
         ethers.utils.formatEther(balanceDaiBefore.sub(balanceDaiAfter))
       );
@@ -355,7 +355,7 @@ describe("GUni Periphery Contracts", function () {
         "USDC deposit:",
         ethers.utils.formatUnits(balanceUsdcBefore.sub(balanceUsdcAfter), "6")
       );
-      //console.log("G-UNI minted:", balanceGUniAfter.sub(balanceGUniBefore).toString())
+      console.log("G-UNI minted:", balanceGUniAfter.sub(balanceGUniBefore).toString())*/
 
       const diffGUni = balanceGUniAfter.sub(balanceGUniBefore);
       expect(balanceGUniBefore).to.be.lt(diffGUni);
