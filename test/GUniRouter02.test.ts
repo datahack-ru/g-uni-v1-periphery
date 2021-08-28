@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers, network } from "hardhat";
-import { IERC20, GUniResolver, GUniRouter02, IGUniPool } from "../typechain";
+import { IERC20, GUniResolver02, GUniRouter02, IGUniPool } from "../typechain";
 import fetch from "node-fetch";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { getAddresses } from "../src/addresses";
@@ -96,7 +96,7 @@ const quote1Inch = async (
   }
 };
 
-describe("GUni Periphery Contracts", function () {
+describe("GUni Periphery Contracts: Version 2", function () {
   this.timeout(0);
   let user0: SignerWithAddress;
   //let user1: SignerWithAddress;
@@ -105,7 +105,7 @@ describe("GUni Periphery Contracts", function () {
   let gUniToken: IERC20;
   let gUniPool: IGUniPool;
   let gUniRouter: GUniRouter02;
-  let gUniResolver: GUniResolver;
+  let gUniResolver: GUniResolver02;
   //let pool: IUniswapV3Pool;
   before(async function () {
     [user0] = await ethers.getSigners();
@@ -132,8 +132,10 @@ describe("GUni Periphery Contracts", function () {
       addresses.WETH
     )) as GUniRouter02;
 
-    const gUniResolverFactory = await ethers.getContractFactory("GUniResolver");
-    gUniResolver = (await gUniResolverFactory.deploy()) as GUniResolver;
+    const gUniResolverFactory = await ethers.getContractFactory(
+      "GUniResolver02"
+    );
+    gUniResolver = (await gUniResolverFactory.deploy()) as GUniResolver02;
 
     const daiFaucet = "0x5A16552f59ea34E44ec81E58b3817833E9fD5436";
     await network.provider.request({
@@ -158,7 +160,7 @@ describe("GUni Periphery Contracts", function () {
       );
   });
 
-  describe("deposits through GUniRouter", function () {
+  describe("deposits through GUniRouter02", function () {
     it("should deposit funds with addLiquidity", async function () {
       await daiToken
         .connect(user0)
@@ -176,12 +178,17 @@ describe("GUni Periphery Contracts", function () {
         await user0.getAddress()
       );
 
+      const mintAmounts = await gUniPool.getMintAmounts(
+        ethers.utils.parseEther("100000"),
+        (100000 * 10 ** 6).toString()
+      );
+
       await gUniRouter.addLiquidity(
         gUniPool.address,
         ethers.utils.parseEther("100000"),
         (100000 * 10 ** 6).toString(),
-        0,
-        0,
+        mintAmounts.amount0,
+        mintAmounts.amount1,
         await user0.getAddress()
       );
 
@@ -285,24 +292,27 @@ describe("GUni Periphery Contracts", function () {
       );
       expect(result2.zeroForOne).to.be.false;
 
-      /*console.log("swap amount:", ethers.utils.formatUnits(result2.swapAmount, "6"));
-
       const quoteAmount3 = await quote1Inch(
         "1",
         addresses.USDC,
         addresses.DAI,
         result2.swapAmount.toString()
       );
-      console.log("quoteAmount3?", quoteAmount3);
-      console.log("return amount:", ethers.utils.formatEther(ethers.BigNumber.from(quoteAmount3)));
 
-      const amountDAIIn = spendAmountDAI.add(ethers.BigNumber.from(quoteAmount2))
-      const amountUSDCIn = ethers.BigNumber.from(spendAmountUSDC.toString()).sub(result.swapAmount)
+      const amountDAIIn = spendAmountDAI.add(
+        ethers.BigNumber.from(quoteAmount3)
+      );
+      const amountUSDCIn = ethers.BigNumber.from(
+        spendAmountUSDC.toString()
+      ).sub(result.swapAmount);
       const mintAmounts = await gUniPool.getMintAmounts(
         amountDAIIn,
-        amountUSDCIn,
+        amountUSDCIn
       );
 
+      /*console.log("swap amount:", ethers.utils.formatUnits(result2.swapAmount, "6"));
+      console.log("quoteAmount3?", quoteAmount3);
+      console.log("return amount:", ethers.utils.formatEther(ethers.BigNumber.from(quoteAmount3)));
       console.log("dai expected:", ethers.utils.formatEther(mintAmounts.amount0))
       console.log("usdc expected:", ethers.utils.formatUnits(mintAmounts.amount1, "6"))
       console.log("get swap params...")*/
@@ -326,10 +336,12 @@ describe("GUni Periphery Contracts", function () {
         gUniPool.address,
         spendAmountDAI,
         spendAmountUSDC.toString(),
+        result2.swapAmount.toString(),
+        false,
         [approveParams.to, swapParams.to],
         [approveParams.data, swapParams.data],
-        0,
-        0,
+        mintAmounts.amount0,
+        mintAmounts.amount1,
         await user0.getAddress()
       );
 
@@ -348,14 +360,17 @@ describe("GUni Periphery Contracts", function () {
       expect(balanceGUniBefore).to.be.lt(balanceGUniAfter);
 
       /*console.log(
-        "DAI deposit:",
+        "DAI input:",
         ethers.utils.formatEther(balanceDaiBefore.sub(balanceDaiAfter))
       );
       console.log(
-        "USDC deposit:",
+        "USDC input:",
         ethers.utils.formatUnits(balanceUsdcBefore.sub(balanceUsdcAfter), "6")
       );
-      console.log("G-UNI minted:", balanceGUniAfter.sub(balanceGUniBefore).toString())*/
+      console.log("G-UNI minted:", balanceGUniAfter.sub(balanceGUniBefore).toString())
+      const balances = await gUniResolver.getUnderlyingBalances(gUniToken.address, balanceGUniAfter.sub(balanceGUniBefore).toString());
+      console.log("DAI deposited:", ethers.utils.formatEther(balances.amount0));
+      console.log("USDC deposited:", ethers.utils.formatUnits(balances.amount1, "6"));*/
 
       const diffGUni = balanceGUniAfter.sub(balanceGUniBefore);
       expect(balanceGUniBefore).to.be.lt(diffGUni);
@@ -369,7 +384,7 @@ describe("GUni Periphery Contracts", function () {
       expect(contractBalanceG).to.equal(ethers.constants.Zero);
     });
   });
-  describe("withdrawal through GUniRouter", function () {
+  describe("withdrawal through GUniRouter02", function () {
     it("should withdraw funds with removeLiquidity", async function () {
       const balanceGUniBefore = await gUniToken.balanceOf(
         await user0.getAddress()

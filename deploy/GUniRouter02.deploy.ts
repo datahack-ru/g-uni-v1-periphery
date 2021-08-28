@@ -10,7 +10,7 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
     hre.network.name === "ropsten"
   ) {
     console.log(
-      `!! Deploying GUniRouter to mainnet/testnet. Hit ctrl + c to abort`
+      `!! Deploying GUniRouter02 to mainnet/testnet. Hit ctrl + c to abort`
     );
     await new Promise((r) => setTimeout(r, 20000));
   }
@@ -19,9 +19,9 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
   const { deployer } = await getNamedAccounts();
   const addresses = getAddresses(hre.network.name);
 
-  await deploy("GUniRouter", {
+  await deploy("GUniRouter02", {
     from: deployer,
-    args: [addresses.UniswapV3Factory, addresses.WETH],
+    args: [addresses.WETH],
   });
 };
 
@@ -33,6 +33,6 @@ func.skip = async (hre: HardhatRuntimeEnvironment) => {
   return shouldSkip ? true : false;
 };
 
-func.tags = ["GUniRouter"];
+func.tags = ["GUniRouter02"];
 
 export default func;

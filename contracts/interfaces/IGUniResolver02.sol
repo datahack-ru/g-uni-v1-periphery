@@ -4,7 +4,7 @@ pragma solidity 0.8.4;
 
 import {IGUniPool} from "./IGUniPool.sol";
 
-interface IGUniResolver {
+interface IGUniResolver02 {
     function getUnderlyingBalances(IGUniPool pool, uint256 balance)
         external
         view
@@ -19,13 +19,6 @@ interface IGUniResolver {
         IGUniPool pool,
         uint256 amount0In,
         uint256 amount1In,
-        uint16 slippageBPS
-    )
-        external
-        view
-        returns (
-            bool zeroForOne,
-            uint256 swapAmount,
-            uint160 swapThreshold
-        );
+        uint256 price18Decimals
+    ) external view returns (bool zeroForOne, uint256 swapAmount);
 }

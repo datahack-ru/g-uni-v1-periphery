@@ -4,7 +4,7 @@ pragma solidity 0.8.4;
 
 import {IGUniPool} from "./IGUniPool.sol";
 
-interface IGUniRouter02 {
+interface IGUniRouter {
     function addLiquidity(
         IGUniPool pool,
         uint256 amount0Max,
@@ -40,10 +40,9 @@ interface IGUniRouter02 {
         IGUniPool pool,
         uint256 amount0In,
         uint256 amount1In,
-        uint256 amountSwap,
         bool zeroForOne,
-        address[] memory swapActions,
-        bytes[] memory swapDatas,
+        uint256 swapAmount,
+        uint160 swapThreshold,
         uint256 amount0Min,
         uint256 amount1Min,
         address receiver
@@ -59,10 +58,9 @@ interface IGUniRouter02 {
         IGUniPool pool,
         uint256 amount0In,
         uint256 amount1In,
-        uint256 amountSwap,
         bool zeroForOne,
-        address[] memory swapActions,
-        bytes[] memory swapDatas,
+        uint256 swapAmount,
+        uint160 swapThreshold,
         uint256 amount0Min,
         uint256 amount1Min,
         address receiver
