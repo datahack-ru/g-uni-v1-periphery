@@ -47,7 +47,7 @@ const swapTokenData = async (
   try {
     const apiResponse = (await (
       await fetch(
-        `https://api.1inch.exchange/v3.0/${networkId}/swap?fromTokenAddress=${fromTokenAddress}&toTokenAddress=${toTokenAddress}&amount=${amount}&fromAddress=${fromAddress}&slippage=${slippage}&disableEstimate=true&protocols=CURVE`
+        `https://api.1inch.exchange/v3.0/${networkId}/swap?fromTokenAddress=${fromTokenAddress}&toTokenAddress=${toTokenAddress}&amount=${amount}&fromAddress=${fromAddress}&slippage=${slippage}&disableEstimate=true&protocols=CURVE,SUSHI,KYBER`
       )
     ).json()) as unknown as {
       tx: {
@@ -102,10 +102,13 @@ describe("GUni Periphery Contracts: Version 2", function () {
   //let user1: SignerWithAddress;
   let usdcToken: IERC20;
   let daiToken: IERC20;
+  let wethToken: IERC20;
   let gUniToken: IERC20;
   let gUniPool: IGUniPool;
   let gUniRouter: GUniRouter02;
   let gUniResolver: GUniResolver02;
+  let gUniEthPool: IGUniPool;
+  let gUniEthToken: IERC20;
   //let pool: IUniswapV3Pool;
   before(async function () {
     [user0] = await ethers.getSigners();
@@ -119,12 +122,24 @@ describe("GUni Periphery Contracts: Version 2", function () {
       "IGUniPool",
       poolAddress
     )) as IGUniPool;
+    gUniEthPool = (await ethers.getContractAt(
+      "IGUniPool",
+      "0xa6c49FD13E50a30C65E6C8480aADA132011D0613"
+    )) as IGUniPool;
     daiToken = (await ethers.getContractAt("IERC20", addresses.DAI)) as IERC20;
     usdcToken = (await ethers.getContractAt(
       "IERC20",
       addresses.USDC
     )) as IERC20;
+    wethToken = (await ethers.getContractAt(
+      "IERC20",
+      addresses.WETH
+    )) as IERC20;
     gUniToken = (await ethers.getContractAt("IERC20", poolAddress)) as IERC20;
+    gUniEthToken = (await ethers.getContractAt(
+      "IERC20",
+      "0xa6c49FD13E50a30C65E6C8480aADA132011D0613"
+    )) as IERC20;
 
     const gUniRouterFactory = await ethers.getContractFactory("GUniRouter02");
 
@@ -224,6 +239,71 @@ describe("GUni Periphery Contracts: Version 2", function () {
       expect(contractBalanceG).to.equal(ethers.constants.Zero);
     });
 
+    it("should deposit funds with addLiquidityETH", async function () {
+      await usdcToken
+        .connect(user0)
+        .approve(gUniRouter.address, ethers.utils.parseEther("1000000"));
+      const balanceEthBefore = await daiToken.provider.getBalance(
+        await user0.getAddress()
+      );
+      const balanceUsdcBefore = await usdcToken.balanceOf(
+        await user0.getAddress()
+      );
+      const balanceGUniBefore = await gUniEthToken.balanceOf(
+        await user0.getAddress()
+      );
+
+      const mintAmounts = await gUniEthPool.getMintAmounts(
+        (100000 * 10 ** 6).toString(),
+        ethers.utils.parseEther("100")
+      );
+
+      await gUniRouter.addLiquidityETH(
+        gUniEthPool.address,
+        (100000 * 10 ** 6).toString(),
+        ethers.utils.parseEther("100"),
+        mintAmounts.amount0,
+        mintAmounts.amount1,
+        await user0.getAddress(),
+        { value: ethers.utils.parseEther("100") }
+      );
+
+      const balanceEthAfter = await daiToken.provider.getBalance(
+        await user0.getAddress()
+      );
+      const balanceUsdcAfter = await usdcToken.balanceOf(
+        await user0.getAddress()
+      );
+      const balanceGUniAfter = await gUniEthToken.balanceOf(
+        await user0.getAddress()
+      );
+      expect(balanceEthBefore).to.be.gt(balanceEthAfter);
+      expect(balanceUsdcBefore).to.be.gt(balanceUsdcAfter);
+      expect(balanceGUniBefore).to.be.lt(balanceGUniAfter);
+
+      /*console.log(
+        "ETH deposit:",
+        ethers.utils.formatEther(balanceEthBefore.sub(balanceEthAfter))
+      );
+      console.log(
+        "USDC deposit:",
+        ethers.utils.formatUnits(balanceUsdcBefore.sub(balanceUsdcAfter), "6")
+      );
+      console.log("G-UNI minted:", balanceGUniAfter.sub(balanceGUniBefore).toString())*/
+
+      const contractBalanceEth = await daiToken.provider.getBalance(
+        gUniRouter.address
+      );
+      const contractBalanceWeth = await wethToken.balanceOf(gUniRouter.address);
+      const contractBalanceUsdc = await usdcToken.balanceOf(gUniRouter.address);
+      const contractBalanceG = await gUniToken.balanceOf(gUniRouter.address);
+
+      expect(contractBalanceEth).to.equal(ethers.constants.Zero);
+      expect(contractBalanceWeth).to.equal(ethers.constants.Zero);
+      expect(contractBalanceUsdc).to.equal(ethers.constants.Zero);
+      expect(contractBalanceG).to.equal(ethers.constants.Zero);
+    });
+
     it("should deposit funds with rebalanceAndAddLiquidity", async function () {
       await daiToken
         .connect(user0)
@@ -243,7 +323,7 @@ describe("GUni Periphery Contracts: Version 2", function () {
       const spendAmountUSDC = 100000 * 10 ** 6;
       const spendAmountDAI = ethers.utils.parseEther("100000");
 
-      await new Promise((r) => setTimeout(r, 2000));
+      //await new Promise((r) => setTimeout(r, 2000));
       const quoteAmount = await quote1Inch(
         "1",
         addresses.USDC,
@@ -383,6 +463,80 @@ describe("GUni Periphery Contracts: Version 2", function () {
       expect(contractBalanceWeth).to.equal(ethers.constants.Zero);
       expect(contractBalanceG).to.equal(ethers.constants.Zero);
     });
+    it("should deposit funds with rebalanceAndAddLiquidityETH", async function () {
+      await usdcToken
+        .connect(user0)
+        .approve(gUniRouter.address, ethers.utils.parseEther("1000000"));
+      const balanceEthBefore = await daiToken.provider.getBalance(
+        await user0.getAddress()
+      );
+      const balanceUsdcBefore = await usdcToken.balanceOf(
+        await user0.getAddress()
+      );
+      const balanceGUniBefore = await gUniEthToken.balanceOf(
+        await user0.getAddress()
+      );
+      const spendAmountETH = ethers.utils.parseEther("30");
+      const spendAmountUSDC = 100000 * 10 ** 6;
+
+      const swapParams = await swapTokenData(
+        "1",
+        "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        addresses.USDC,
+        ethers.utils.parseEther("5").toString(),
+        gUniRouter.address,
+        "50"
+      );
+
+      await gUniRouter.rebalanceAndAddLiquidityETH(
+        gUniEthPool.address,
+        spendAmountUSDC.toString(),
+        spendAmountETH,
+        ethers.utils.parseEther("5"),
+        false,
+        [swapParams.to],
+        [swapParams.data],
+        0,
+        0,
+        await user0.getAddress(),
+        { value: spendAmountETH }
+      );
+
+      const balanceEthAfter = await daiToken.provider.getBalance(
+        await user0.getAddress()
+      );
+      const balanceUsdcAfter = await usdcToken.balanceOf(
+        await user0.getAddress()
+      );
+      const balanceGUniAfter = await gUniEthToken.balanceOf(
+        await user0.getAddress()
+      );
+      expect(balanceEthBefore).to.be.gt(balanceEthAfter);
+      expect(balanceUsdcBefore).to.be.gt(balanceUsdcAfter);
+      expect(balanceGUniBefore).to.be.lt(balanceGUniAfter);
+
+      /*console.log(
+        "ETH deposit:",
+        ethers.utils.formatEther(balanceEthBefore.sub(balanceEthAfter))
+      );
+      console.log(
+        "USDC deposit:",
+        ethers.utils.formatUnits(balanceUsdcBefore.sub(balanceUsdcAfter), "6")
+      );
+      console.log("G-UNI minted:", balanceGUniAfter.sub(balanceGUniBefore).toString())*/
+
+      const contractBalanceEth = await daiToken.provider.getBalance(
+        gUniRouter.address
+      );
+      const contractBalanceWeth = await wethToken.balanceOf(gUniRouter.address);
+      const contractBalanceUsdc = await usdcToken.balanceOf(gUniRouter.address);
+      const contractBalanceG = await gUniToken.balanceOf(gUniRouter.address);
+
+      expect(contractBalanceEth).to.equal(ethers.constants.Zero);
+      expect(contractBalanceWeth).to.equal(ethers.constants.Zero);
+      expect(contractBalanceUsdc).to.equal(ethers.constants.Zero);
+      expect(contractBalanceG).to.equal(ethers.constants.Zero);
+    });
   });
   describe("withdrawal through GUniRouter02", function () {
     it("should withdraw funds with removeLiquidity", async function () {
@@ -420,6 +574,44 @@ describe("GUni Periphery Contracts: Version 2", function () {
       );
 
       expect(balanceDaiAfter).to.be.gt(balanceDaiBefore);
+      expect(balanceUsdcAfter).to.be.gt(balanceUsdcBefore);
+      expect(balanceGUniBefore).to.be.gt(balanceGUniAfter);
+    });
+    it("should withdraw funds with removeLiquidityETH", async function () {
+      const balanceGUniBefore = await gUniEthToken.balanceOf(
+        await user0.getAddress()
+      );
+      expect(balanceGUniBefore).to.be.gt(ethers.constants.Zero);
+
+      const halfBalance = balanceGUniBefore.div("2");
+      const balanceEthBefore = await daiToken.provider.getBalance(
+        await user0.getAddress()
+      );
+      const balanceUsdcBefore = await usdcToken.balanceOf(
+        await user0.getAddress()
+      );
+      await gUniEthToken.approve(
+        gUniRouter.address,
+        ethers.utils.parseEther("10000000")
+      );
+      await gUniRouter.removeLiquidityETH(
+        gUniEthPool.address,
+        halfBalance,
+        0,
+        0,
+        await user0.getAddress()
+      );
+      const balanceEthAfter = await daiToken.provider.getBalance(
+        await user0.getAddress()
+      );
+      const balanceUsdcAfter = await usdcToken.balanceOf(
+        await user0.getAddress()
+      );
+      const balanceGUniAfter = await gUniEthToken.balanceOf(
+        await user0.getAddress()
+      );
+
+      expect(balanceEthAfter).to.be.gt(balanceEthBefore);
       expect(balanceUsdcAfter).to.be.gt(balanceUsdcBefore);
       expect(balanceGUniBefore).to.be.gt(balanceGUniAfter);
     });

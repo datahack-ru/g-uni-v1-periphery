@@ -411,7 +411,7 @@ contract GUniRouter02 is IGUniRouter02 {
             amount1In = amount1In - amountSwap;
         }
 
-        _swap(pool, zeroForOne, swapActions, swapDatas);
+        _swap(pool, amountSwap, zeroForOne, swapActions, swapDatas);
 
         (amount0Use, amount1Use, mintAmount) = pool.getMintAmounts(
             amount0In + pool.token0().balanceOf(address(this)),
@@ -484,7 +484,7 @@ contract GUniRouter02 is IGUniRouter02 {
             amount1In = amount1In - amountSwap;
         }
 
-        _swap(pool, zeroForOne, swapActions, swapDatas);
+        _swap(pool, amountSwap, zeroForOne, swapActions, swapDatas);
 
         (amount0Use, amount1Use, mintAmount) = pool.getMintAmounts(
             amount0In + pool.token0().balanceOf(address(this)),
@@ -545,26 +545,27 @@ contract GUniRouter02 is IGUniRouter02 {
 
     function _swap(
         IGUniPool pool,
+        uint256 amountSwap,
         bool zeroForOne,
-        address[] memory _swapActions,
-        bytes[] memory _swapDatas
+        address[] memory swapActions,
+        bytes[] memory swapDatas
     ) internal {
         require(
-            _swapActions.length == _swapDatas.length,
+            swapActions.length == swapDatas.length,
             "swap actions length != swap datas length"
         );
         uint256 balanceBefore =
             zeroForOne
                 ? pool.token1().balanceOf(address(this))
                 : pool.token0().balanceOf(address(this));
-        if (_swapActions.length == 1) {
+        if (swapActions.length == 1) {
             (bool success, bytes memory returnsData) =
-                _swapActions[0].call{value: msg.value}(_swapDatas[0]);
+                swapActions[0].call{value: amountSwap}(swapDatas[0]);
             if (!success) GelatoBytes.revertWithError(returnsData, "swap: ");
         } else {
-            for (uint256 i; i < _swapActions.length; i++) {
+            for (uint256 i; i < swapActions.length; i++) {
                 (bool success, bytes memory returnsData) =
-                    _swapActions[i].call(_swapDatas[i]);
+                    swapActions[i].call(swapDatas[i]);
                 if (!success)
                     GelatoBytes.revertWithError(returnsData, "swap: ");
             }
