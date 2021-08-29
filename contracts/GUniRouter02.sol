@@ -135,10 +135,12 @@ contract GUniRouter02 is IGUniRouter02 {
     }
 
     /// @notice rebalanceAndAddLiquidity accomplishes same task as addLiquidity/addLiquidityETH
-    /// but msg.sender rebalances their holdings (performs a swap) before adding liquidity.
+    /// but we rebalance msg.sender's holdings (perform a swap) before adding liquidity.
     /// @param pool address of G-UNI pool to add liquidity to
     /// @param amount0In the amount of token0 msg.sender forwards to router
     /// @param amount1In the amount of token1 msg.sender forwards to router
+    /// @param amountSwap amount to input into swap
+    /// @param zeroForOne directionality of swap
     /// @param swapActions addresses for swap calls
     /// @param swapDatas payloads for swap calls
     /// @param amount0Min the minimum amount of token0 actually deposited (slippage protection)
@@ -147,6 +149,10 @@ contract GUniRouter02 is IGUniRouter02 {
     /// @return amount0 amount of token0 actually deposited into pool
     /// @return amount1 amount of token1 actually deposited into pool
     /// @return mintAmount amount of G-UNI tokens minted and transferred to `receiver`
+    /// @dev note on swaps: MUST swap to/from token0 from/to token1 as specified by zeroForOne
+    /// will revert on "overshot" swap (receive more outToken from swap than can be deposited)
+    /// swapping for erroneous tokens will not necessarily revert in all cases
+    /// and could result in loss of funds so be careful with swapActions and swapDatas params.
     // solhint-disable-next-line function-max-lines
     function rebalanceAndAddLiquidity(
         IGUniPool pool,
@@ -187,6 +193,8 @@ contract GUniRouter02 is IGUniRouter02 {
 
     /// @notice rebalanceAndAddLiquidityETH same as rebalanceAndAddLiquidity
     /// except this function expects ETH transfer (instead of WETH)
+    /// @dev note on swaps: MUST swap either ETH -> token or token->WETH
+    /// swaps which try to execute token -> ETH instead of WETH will revert
     // solhint-disable-next-line function-max-lines, code-complexity
     function rebalanceAndAddLiquidityETH(
         IGUniPool pool,
@@ -374,7 +382,7 @@ contract GUniRouter02 is IGUniRouter02 {
             amount1In = amount1In - amountSwap;
         }
 
-        _swap(pool, amountSwap, zeroForOne, swapActions, swapDatas);
+        _swap(pool, 0, zeroForOne, swapActions, swapDatas);
 
         (amount0Use, amount1Use, mintAmount) = _postSwap(
             pool,
@@ -433,7 +441,13 @@ contract GUniRouter02 is IGUniRouter02 {
             amount1In = amount1In - amountSwap;
         }
 
-        _swap(pool, amountSwap, zeroForOne, swapActions, swapDatas);
+        _swap(
+            pool,
+            wethToken0 == zeroForOne ? amountSwap : 0,
+            zeroForOne,
+            swapActions,
+            swapDatas
+        );
 
         (amount0Use, amount1Use, mintAmount) = _postSwapETH(
             pool,
@@ -445,7 +459,7 @@ contract GUniRouter02 is IGUniRouter02 {
 
     function _swap(
         IGUniPool pool,
-        uint256 amountSwap,
+        uint256 ethValue,
         bool zeroForOne,
         address[] memory swapActions,
         bytes[] memory swapDatas
@@ -458,9 +472,9 @@ contract GUniRouter02 is IGUniRouter02 {
             zeroForOne
                 ? pool.token1().balanceOf(address(this))
                 : pool.token0().balanceOf(address(this));
-        if (swapActions.length == 1) {
+        if (ethValue > 0 && swapActions.length == 1) {
             (bool success, bytes memory returnsData) =
-                swapActions[0].call{value: amountSwap}(swapDatas[0]);
+                swapActions[0].call{value: ethValue}(swapDatas[0]);
             if (!success) GelatoBytes.revertWithError(returnsData, "swap: ");
         } else {
             for (uint256 i; i < swapActions.length; i++) {
