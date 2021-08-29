@@ -48,28 +48,22 @@ contract GUniRouter02 is IGUniRouter02 {
             uint256 mintAmount
         )
     {
-        (uint256 amount0In, uint256 amount1In, uint256 _mintAmount) =
-            pool.getMintAmounts(amount0Max, amount1Max);
+        (amount0, amount1, mintAmount) = pool.getMintAmounts(
+            amount0Max,
+            amount1Max
+        );
         require(
-            amount0In >= amount0Min && amount1In >= amount1Min,
+            amount0 >= amount0Min && amount1 >= amount1Min,
             "below min amounts"
         );
-        if (amount0In > 0) {
-            pool.token0().safeTransferFrom(
-                msg.sender,
-                address(this),
-                amount0In
-            );
+        if (amount0 > 0) {
+            pool.token0().safeTransferFrom(msg.sender, address(this), amount0);
         }
-        if (amount1In > 0) {
-            pool.token1().safeTransferFrom(
-                msg.sender,
-                address(this),
-                amount1In
-            );
+        if (amount1 > 0) {
+            pool.token1().safeTransferFrom(msg.sender, address(this), amount1);
         }
 
-        return _deposit(pool, amount0In, amount1In, _mintAmount, receiver);
+        _deposit(pool, amount0, amount1, mintAmount, receiver);
     }
 
     /// @notice addLiquidityETH same as addLiquidity but expects ETH transfers (instead of WETH)
@@ -91,10 +85,13 @@ contract GUniRouter02 is IGUniRouter02 {
             uint256 mintAmount
         )
     {
-        (uint256 amount0In, uint256 amount1In, uint256 _mintAmount) =
-            pool.getMintAmounts(amount0Max, amount1Max);
+        uint256 preBalance = address(this).balance - msg.value;
+        (amount0, amount1, mintAmount) = pool.getMintAmounts(
+            amount0Max,
+            amount1Max
+        );
         require(
-            amount0In >= amount0Min && amount1In >= amount1Min,
+            amount0 >= amount0Min && amount1 >= amount1Min,
             "below min amounts"
         );
 
@@ -103,14 +100,14 @@ contract GUniRouter02 is IGUniRouter02 {
                 amount0Max == msg.value,
                 "mismatching amount of ETH forwarded"
             );
-            if (amount0In > 0) {
-                weth.deposit{value: amount0In}();
+            if (amount0 > 0) {
+                weth.deposit{value: amount0}();
             }
-            if (amount1In > 0) {
+            if (amount1 > 0) {
                 pool.token1().safeTransferFrom(
                     msg.sender,
                     address(this),
-                    amount1In
+                    amount1
                 );
             }
         } else {
@@ -118,34 +115,22 @@ contract GUniRouter02 is IGUniRouter02 {
                 amount1Max == msg.value,
                 "mismatching amount of ETH forwarded"
             );
-            if (amount1In > 0) {
-                weth.deposit{value: amount1In}();
+            if (amount1 > 0) {
+                weth.deposit{value: amount1}();
             }
-            if (amount0In > 0) {
+            if (amount0 > 0) {
                 pool.token0().safeTransferFrom(
                     msg.sender,
                     address(this),
-                    amount0In
+                    amount0
                 );
             }
         }
 
-        (amount0, amount1, mintAmount) = _deposit(
-            pool,
-            amount0In,
-            amount1In,
-            _mintAmount,
-            receiver
-        );
+        _deposit(pool, amount0, amount1, mintAmount, receiver);
 
-        if (isToken0Weth(address(pool.token0()), address(pool.token1()))) {
-            if (amount0Max > amount0In) {
-                payable(msg.sender).sendValue(amount0Max - amount0In);
-            }
-        } else {
-            if (amount1Max > amount1In) {
-                payable(msg.sender).sendValue(amount1Max - amount1In);
-            }
+        if (address(this).balance > preBalance) {
+            payable(msg.sender).sendValue(address(this).balance - preBalance);
         }
     }
 
@@ -162,9 +147,6 @@ contract GUniRouter02 is IGUniRouter02 {
     /// @return amount0 amount of token0 actually deposited into pool
     /// @return amount1 amount of token1 actually deposited into pool
     /// @return mintAmount amount of G-UNI tokens minted and transferred to `receiver`
-    /// @dev because router performs a swap on behalf of msg.sender and slippage is possible
-    /// some value unused in mint can be returned to msg.sender in token0 and token1 make sure
-    /// to consult return values or measure balance changes after a rebalanceAndAddLiquidity call.
     // solhint-disable-next-line function-max-lines
     function rebalanceAndAddLiquidity(
         IGUniPool pool,
@@ -200,7 +182,7 @@ contract GUniRouter02 is IGUniRouter02 {
             "below min amounts"
         );
 
-        return _deposit(pool, amount0, amount1, mintAmount, receiver);
+        _deposit(pool, amount0, amount1, mintAmount, receiver);
     }
 
     /// @notice rebalanceAndAddLiquidityETH same as rebalanceAndAddLiquidity
@@ -227,7 +209,7 @@ contract GUniRouter02 is IGUniRouter02 {
             uint256 mintAmount
         )
     {
-        uint256 ethForwarded = msg.value;
+        uint256 preBalance = address(this).balance - msg.value;
         (amount0, amount1, mintAmount) = _prepareRebalanceDepositETH(
             pool,
             amount0In,
@@ -242,22 +224,11 @@ contract GUniRouter02 is IGUniRouter02 {
             "below min amounts"
         );
 
-        (amount0, amount1, mintAmount) = _deposit(
-            pool,
-            amount0,
-            amount1,
-            mintAmount,
-            receiver
-        );
+        _deposit(pool, amount0, amount1, mintAmount, receiver);
 
-        _calculateAndRefundETH(
-            pool,
-            amount0,
-            amount1,
-            amountSwap,
-            ethForwarded,
-            zeroForOne
-        );
+        if (address(this).balance > preBalance) {
+            payable(msg.sender).sendValue(address(this).balance - preBalance);
+        }
     }
 
     /// @notice removeLiquidity removes liquidity from a G-UNI pool and burns G-UNI LP tokens
@@ -351,34 +322,26 @@ contract GUniRouter02 is IGUniRouter02 {
 
     function _deposit(
         IGUniPool pool,
-        uint256 amount0In,
-        uint256 amount1In,
-        uint256 _mintAmount,
+        uint256 amount0,
+        uint256 amount1,
+        uint256 mintAmount,
         address receiver
-    )
-        internal
-        returns (
-            uint256 amount0,
-            uint256 amount1,
-            uint256 mintAmount
-        )
-    {
-        if (amount0In > 0) {
-            pool.token0().safeIncreaseAllowance(address(pool), amount0In);
+    ) internal {
+        if (amount0 > 0) {
+            pool.token0().safeIncreaseAllowance(address(pool), amount0);
         }
-        if (amount1In > 0) {
-            pool.token1().safeIncreaseAllowance(address(pool), amount1In);
+        if (amount1 > 0) {
+            pool.token1().safeIncreaseAllowance(address(pool), amount1);
         }
 
-        (amount0, amount1, ) = pool.mint(_mintAmount, receiver);
+        (uint256 amount0Check, uint256 amount1Check, ) =
+            pool.mint(mintAmount, receiver);
         require(
-            amount0 == amount0In && amount1 == amount1In,
+            amount0 == amount0Check && amount1 == amount1Check,
             "unexpected amounts deposited"
         );
-        mintAmount = _mintAmount;
     }
 
-    // solhint-disable-next-line function-max-lines
     function _prepareRebalanceDeposit(
         IGUniPool pool,
         uint256 amount0In,
@@ -413,28 +376,14 @@ contract GUniRouter02 is IGUniRouter02 {
 
         _swap(pool, amountSwap, zeroForOne, swapActions, swapDatas);
 
-        (amount0Use, amount1Use, mintAmount) = pool.getMintAmounts(
-            amount0In + pool.token0().balanceOf(address(this)),
-            amount1In + pool.token1().balanceOf(address(this))
+        (amount0Use, amount1Use, mintAmount) = _postSwap(
+            pool,
+            amount0In,
+            amount1In
         );
-
-        if (amount0Use - pool.token0().balanceOf(address(this)) > 0) {
-            pool.token0().safeTransferFrom(
-                msg.sender,
-                address(this),
-                amount0Use - pool.token0().balanceOf(address(this))
-            );
-        }
-        if (amount1Use - pool.token1().balanceOf(address(this)) > 0) {
-            pool.token1().safeTransferFrom(
-                msg.sender,
-                address(this),
-                amount1Use - pool.token1().balanceOf(address(this))
-            );
-        }
     }
 
-    // solhint-disable-next-line code-complexity, function-max-lines
+    // solhint-disable-next-line function-max-lines
     function _prepareRebalanceDepositETH(
         IGUniPool pool,
         uint256 amount0In,
@@ -486,61 +435,12 @@ contract GUniRouter02 is IGUniRouter02 {
 
         _swap(pool, amountSwap, zeroForOne, swapActions, swapDatas);
 
-        (amount0Use, amount1Use, mintAmount) = pool.getMintAmounts(
-            amount0In + pool.token0().balanceOf(address(this)),
-            amount1In + pool.token1().balanceOf(address(this))
+        (amount0Use, amount1Use, mintAmount) = _postSwapETH(
+            pool,
+            amount0In,
+            amount1In,
+            wethToken0
         );
-
-        if (amount0Use - pool.token0().balanceOf(address(this)) > 0) {
-            if (wethToken0) {
-                weth.deposit{
-                    value: amount0Use - pool.token0().balanceOf(address(this))
-                }();
-            } else {
-                pool.token0().safeTransferFrom(
-                    msg.sender,
-                    address(this),
-                    amount0Use - pool.token0().balanceOf(address(this))
-                );
-            }
-        }
-        if (amount1Use - pool.token1().balanceOf(address(this)) > 0) {
-            if (wethToken0) {
-                pool.token1().safeTransferFrom(
-                    msg.sender,
-                    address(this),
-                    amount1Use - pool.token1().balanceOf(address(this))
-                );
-            } else {
-                weth.deposit{
-                    value: amount1Use - pool.token1().balanceOf(address(this))
-                }();
-            }
-        }
-    }
-
-    function _calculateAndRefundETH(
-        IGUniPool pool,
-        uint256 amount0,
-        uint256 amount1,
-        uint256 amountSwap,
-        uint256 ethForwarded,
-        bool zeroForOne
-    ) internal {
-        uint256 ethLeftover;
-        if (isToken0Weth(address(pool.token0()), address(pool.token1()))) {
-            ethLeftover = zeroForOne
-                ? ethForwarded - amountSwap - amount0
-                : ethForwarded - amount0;
-        } else {
-            ethLeftover = zeroForOne
-                ? ethForwarded - amount1
-                : ethForwarded - amountSwap - amount1;
-        }
-
-        if (ethLeftover > 0) {
-            payable(msg.sender).sendValue(ethLeftover);
-        }
     }
 
     function _swap(
@@ -575,6 +475,96 @@ contract GUniRouter02 is IGUniRouter02 {
                 ? pool.token1().balanceOf(address(this))
                 : pool.token0().balanceOf(address(this));
         require(balanceAfter > balanceBefore, "swap for incorrect token");
+    }
+
+    function _postSwap(
+        IGUniPool pool,
+        uint256 amount0In,
+        uint256 amount1In
+    )
+        internal
+        returns (
+            uint256 amount0Use,
+            uint256 amount1Use,
+            uint256 mintAmount
+        )
+    {
+        uint256 balance0 = pool.token0().balanceOf(address(this));
+        uint256 balance1 = pool.token1().balanceOf(address(this));
+
+        (amount0Use, amount1Use, mintAmount) = pool.getMintAmounts(
+            amount0In + balance0,
+            amount1In + balance1
+        );
+        require(
+            amount1Use >= balance1 && amount0Use >= balance0,
+            "swap overshot"
+        );
+
+        if (amount0Use - balance0 > 0) {
+            pool.token0().safeTransferFrom(
+                msg.sender,
+                address(this),
+                amount0Use - balance0
+            );
+        }
+        if (amount1Use - balance1 > 0) {
+            pool.token1().safeTransferFrom(
+                msg.sender,
+                address(this),
+                amount1Use - balance1
+            );
+        }
+    }
+
+    // solhint-disable-next-line code-complexity, function-max-lines
+    function _postSwapETH(
+        IGUniPool pool,
+        uint256 amount0In,
+        uint256 amount1In,
+        bool wethToken0
+    )
+        internal
+        returns (
+            uint256 amount0Use,
+            uint256 amount1Use,
+            uint256 mintAmount
+        )
+    {
+        uint256 balance0 = pool.token0().balanceOf(address(this));
+        uint256 balance1 = pool.token1().balanceOf(address(this));
+
+        (amount0Use, amount1Use, mintAmount) = pool.getMintAmounts(
+            amount0In + balance0,
+            amount1In + balance1
+        );
+        require(
+            amount1Use >= balance1 && amount0Use >= balance0,
+            "swap overshot"
+        );
+
+        if (amount0Use - balance0 > 0) {
+            if (wethToken0) {
+                weth.deposit{value: amount0Use - balance0}();
+            } else {
+                pool.token0().safeTransferFrom(
+                    msg.sender,
+                    address(this),
+                    amount0Use - balance0
+                );
+            }
+        }
+        if (amount1Use - balance1 > 0) {
+            if (wethToken0) {
+                pool.token1().safeTransferFrom(
+                    msg.sender,
+                    address(this),
+                    amount1Use - balance1
+                );
+            } else {
+                weth.deposit{value: amount1Use - balance1}();
+            }
+        }
     }
 
     function isToken0Weth(address token0, address token1)
