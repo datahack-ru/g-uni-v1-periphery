@@ -266,7 +266,10 @@ contract GUniRouter02 is IGUniRouter02 {
             address(this),
             _burnAmount
         );
-        (amount0, amount1, liquidityBurned) = _pool.burn(_burnAmount, _receiver);
+        (amount0, amount1, liquidityBurned) = _pool.burn(
+            _burnAmount,
+            _receiver
+        );
         require(
             amount0 >= _amount0Min && amount1 >= _amount1Min,
             "received below minimum"
