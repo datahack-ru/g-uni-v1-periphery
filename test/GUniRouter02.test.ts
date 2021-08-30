@@ -320,8 +320,8 @@ describe("GUni Periphery Contracts: Version 2", function () {
       const balanceGUniBefore = await gUniToken.balanceOf(
         await user0.getAddress()
       );
-      const spendAmountUSDC = 100000 * 10 ** 6;
-      const spendAmountDAI = ethers.utils.parseEther("100000");
+      const spendAmountUSDC = ethers.utils.parseUnits("100000", "6");
+      const spendAmountDAI = ethers.utils.parseUnits("100000", "18");
 
       //await new Promise((r) => setTimeout(r, 2000));
       const quoteAmount = await quote1Inch(
