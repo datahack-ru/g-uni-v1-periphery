@@ -6,12 +6,12 @@ import {IGUniPool} from "./IGUniPool.sol";
 
 interface IGUniRouter02 {
     function addLiquidity(
-        IGUniPool pool,
-        uint256 amount0Max,
-        uint256 amount1Max,
-        uint256 amount0Min,
-        uint256 amount1Min,
-        address receiver
+        IGUniPool _pool,
+        uint256 _amount0Max,
+        uint256 _amount1Max,
+        uint256 _amount0Min,
+        uint256 _amount1Min,
+        address _receiver
     )
         external
         returns (
@@ -21,12 +21,12 @@ interface IGUniRouter02 {
         );
 
     function addLiquidityETH(
-        IGUniPool pool,
-        uint256 amount0Max,
-        uint256 amount1Max,
-        uint256 amount0Min,
-        uint256 amount1Min,
-        address receiver
+        IGUniPool _pool,
+        uint256 _amount0Max,
+        uint256 _amount1Max,
+        uint256 _amount0Min,
+        uint256 _amount1Min,
+        address _receiver
     )
         external
         payable
@@ -37,16 +37,16 @@ interface IGUniRouter02 {
         );
 
     function rebalanceAndAddLiquidity(
-        IGUniPool pool,
-        uint256 amount0In,
-        uint256 amount1In,
-        uint256 amountSwap,
-        bool zeroForOne,
-        address[] memory swapActions,
-        bytes[] memory swapDatas,
-        uint256 amount0Min,
-        uint256 amount1Min,
-        address receiver
+        IGUniPool _pool,
+        uint256 _amount0In,
+        uint256 _amount1In,
+        uint256 _amountSwap,
+        bool _zeroForOne,
+        address[] calldata _swapActions,
+        bytes[] calldata _swapDatas,
+        uint256 _amount0Min,
+        uint256 _amount1Min,
+        address _receiver
     )
         external
         returns (
@@ -56,16 +56,16 @@ interface IGUniRouter02 {
         );
 
     function rebalanceAndAddLiquidityETH(
-        IGUniPool pool,
-        uint256 amount0In,
-        uint256 amount1In,
-        uint256 amountSwap,
-        bool zeroForOne,
-        address[] memory swapActions,
-        bytes[] memory swapDatas,
-        uint256 amount0Min,
-        uint256 amount1Min,
-        address receiver
+        IGUniPool _pool,
+        uint256 _amount0In,
+        uint256 _amount1In,
+        uint256 _amountSwap,
+        bool _zeroForOne,
+        address[] calldata _swapActions,
+        bytes[] calldata _swapDatas,
+        uint256 _amount0Min,
+        uint256 _amount1Min,
+        address _receiver
     )
         external
         payable
@@ -76,11 +76,11 @@ interface IGUniRouter02 {
         );
 
     function removeLiquidity(
-        IGUniPool pool,
-        uint256 burnAmount,
-        uint256 amount0Min,
-        uint256 amount1Min,
-        address receiver
+        IGUniPool _pool,
+        uint256 _burnAmount,
+        uint256 _amount0Min,
+        uint256 _amount1Min,
+        address _receiver
     )
         external
         returns (
@@ -90,11 +90,11 @@ interface IGUniRouter02 {
         );
 
     function removeLiquidityETH(
-        IGUniPool pool,
-        uint256 burnAmount,
-        uint256 amount0Min,
-        uint256 amount1Min,
-        address payable receiver
+        IGUniPool _pool,
+        uint256 _burnAmount,
+        uint256 _amount0Min,
+        uint256 _amount1Min,
+        address payable _receiver
     )
         external
         returns (
