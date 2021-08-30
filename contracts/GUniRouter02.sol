@@ -85,7 +85,6 @@ contract GUniRouter02 is IGUniRouter02 {
             uint256 mintAmount
         )
     {
-        uint256 preBalance = address(this).balance - msg.value;
         (amount0, amount1, mintAmount) = pool.getMintAmounts(
             amount0Max,
             amount1Max
@@ -129,8 +128,8 @@ contract GUniRouter02 is IGUniRouter02 {
 
         _deposit(pool, amount0, amount1, mintAmount, receiver);
 
-        if (address(this).balance > preBalance) {
-            payable(msg.sender).sendValue(address(this).balance - preBalance);
+        if (address(this).balance > 0) {
+            payable(msg.sender).sendValue(address(this).balance);
         }
     }
 
@@ -217,7 +216,6 @@ contract GUniRouter02 is IGUniRouter02 {
             uint256 mintAmount
         )
     {
-        uint256 preBalance = address(this).balance - msg.value;
         (amount0, amount1, mintAmount) = _prepareRebalanceDepositETH(
             pool,
             amount0In,
@@ -234,8 +232,8 @@ contract GUniRouter02 is IGUniRouter02 {
 
         _deposit(pool, amount0, amount1, mintAmount, receiver);
 
-        if (address(this).balance > preBalance) {
-            payable(msg.sender).sendValue(address(this).balance - preBalance);
+        if (address(this).balance > 0) {
+            payable(msg.sender).sendValue(address(this).balance);
         }
     }
 
@@ -484,6 +482,7 @@ contract GUniRouter02 is IGUniRouter02 {
                     GelatoBytes.revertWithError(returnsData, "swap: ");
             }
         }
+
         uint256 balanceAfter =
             zeroForOne
                 ? pool.token1().balanceOf(address(this))
@@ -491,6 +490,7 @@ contract GUniRouter02 is IGUniRouter02 {
         require(balanceAfter > balanceBefore, "swap for incorrect token");
     }
 
+    // solhint-disable-next-line function-max-lines
     function _postSwap(
         IGUniPool pool,
         uint256 amount0In,
@@ -510,19 +510,20 @@ contract GUniRouter02 is IGUniRouter02 {
             amount0In + balance0,
             amount1In + balance1
         );
-        require(
-            amount1Use >= balance1 && amount0Use >= balance0,
-            "swap overshot"
-        );
 
-        if (amount0Use - balance0 > 0) {
+        if (balance0 > amount0Use) {
+            pool.token0().safeTransfer(msg.sender, balance0 - amount0Use);
+        } else if (balance0 < amount0Use) {
             pool.token0().safeTransferFrom(
                 msg.sender,
                 address(this),
                 amount0Use - balance0
             );
         }
-        if (amount1Use - balance1 > 0) {
+
+        if (balance1 > amount1Use) {
+            pool.token1().safeTransfer(msg.sender, balance1 - amount1Use);
+        } else if (balance1 < amount1Use) {
             pool.token1().safeTransferFrom(
                 msg.sender,
                 address(this),
@@ -595,6 +596,7 @@ contract GUniRouter02 is IGUniRouter02 {
         }
     }
 
-    // solhint-disable-next-line no-empty-blocks
-    receive() external payable {}
+    receive() external payable {
+        revert("cannot receive ETH");
+    }
 }
