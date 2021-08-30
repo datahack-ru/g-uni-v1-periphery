@@ -348,6 +348,7 @@ contract GUniRouter02 is IGUniRouter02 {
         );
     }
 
+    // solhint-disable-next-line function-max-lines
     function _prepareRebalanceDeposit(
         IGUniPool pool,
         uint256 amount0In,
@@ -380,12 +381,15 @@ contract GUniRouter02 is IGUniRouter02 {
             amount1In = amount1In - amountSwap;
         }
 
-        _swap(pool, 0, zeroForOne, swapActions, swapDatas);
+        (uint256 balance0, uint256 balance1) =
+            _swap(pool, 0, zeroForOne, swapActions, swapDatas);
 
         (amount0Use, amount1Use, mintAmount) = _postSwap(
             pool,
             amount0In,
-            amount1In
+            amount1In,
+            balance0,
+            balance1
         );
     }
 
@@ -439,29 +443,33 @@ contract GUniRouter02 is IGUniRouter02 {
             amount1In = amount1In - amountSwap;
         }
 
-        _swap(
-            pool,
-            wethToken0 == zeroForOne ? amountSwap : 0,
-            zeroForOne,
-            swapActions,
-            swapDatas
-        );
+        (uint256 balance0, uint256 balance1) =
+            _swap(
+                pool,
+                wethToken0 == zeroForOne ? amountSwap : 0,
+                zeroForOne,
+                swapActions,
+                swapDatas
+            );
 
         (amount0Use, amount1Use, mintAmount) = _postSwapETH(
             pool,
             amount0In,
             amount1In,
+            balance0,
+            balance1,
             wethToken0
         );
     }
 
+    // solhint-disable-next-line code-complexity
     function _swap(
         IGUniPool pool,
         uint256 ethValue,
         bool zeroForOne,
         address[] memory swapActions,
         bytes[] memory swapDatas
-    ) internal {
+    ) internal returns (uint256 balance0, uint256 balance1) {
         require(
             swapActions.length == swapDatas.length,
             "swap actions length != swap datas length"
@@ -470,6 +478,7 @@ contract GUniRouter02 is IGUniRouter02 {
             zeroForOne
                 ? pool.token1().balanceOf(address(this))
                 : pool.token0().balanceOf(address(this));
+
         if (ethValue > 0 && swapActions.length == 1) {
             (bool success, bytes memory returnsData) =
                 swapActions[0].call{value: ethValue}(swapDatas[0]);
@@ -482,19 +491,22 @@ contract GUniRouter02 is IGUniRouter02 {
                     GelatoBytes.revertWithError(returnsData, "swap: ");
             }
         }
-
-        uint256 balanceAfter =
-            zeroForOne
-                ? pool.token1().balanceOf(address(this))
-                : pool.token0().balanceOf(address(this));
-        require(balanceAfter > balanceBefore, "swap for incorrect token");
+        balance0 = pool.token0().balanceOf(address(this));
+        balance1 = pool.token1().balanceOf(address(this));
+        if (zeroForOne) {
+            require(balance1 > balanceBefore, "swap for incorrect token");
+        } else {
+            require(balance0 > balanceBefore, "swap for incorrect token");
+        }
     }
 
     // solhint-disable-next-line function-max-lines
     function _postSwap(
         IGUniPool pool,
         uint256 amount0In,
-        uint256 amount1In
+        uint256 amount1In,
+        uint256 balance0,
+        uint256 balance1
     )
         internal
         returns (
@@ -503,9 +515,6 @@ contract GUniRouter02 is IGUniRouter02 {
             uint256 mintAmount
         )
     {
-        uint256 balance0 = pool.token0().balanceOf(address(this));
-        uint256 balance1 = pool.token1().balanceOf(address(this));
-
         (amount0Use, amount1Use, mintAmount) = pool.getMintAmounts(
             amount0In + balance0,
             amount1In + balance1
@@ -537,6 +546,8 @@ contract GUniRouter02 is IGUniRouter02 {
         IGUniPool pool,
         uint256 amount0In,
         uint256 amount1In,
+        uint256 balance0,
+        uint256 balance1,
         bool wethToken0
     )
         internal
@@ -546,9 +557,6 @@ contract GUniRouter02 is IGUniRouter02 {
             uint256 mintAmount
         )
     {
-        uint256 balance0 = pool.token0().balanceOf(address(this));
-        uint256 balance1 = pool.token1().balanceOf(address(this));
-
         (amount0Use, amount1Use, mintAmount) = pool.getMintAmounts(
             amount0In + balance0,
             amount1In + balance1
