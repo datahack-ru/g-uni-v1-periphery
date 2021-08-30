@@ -553,12 +553,8 @@ contract GUniRouter02 is IGUniRouter02 {
             amount0In + balance0,
             amount1In + balance1
         );
-        require(
-            amount1Use >= balance1 && amount0Use >= balance0,
-            "swap overshot"
-        );
 
-        if (amount0Use - balance0 > 0) {
+        if (amount0Use > balance0) {
             if (wethToken0) {
                 weth.deposit{value: amount0Use - balance0}();
             } else {
@@ -568,8 +564,14 @@ contract GUniRouter02 is IGUniRouter02 {
                     amount0Use - balance0
                 );
             }
+        } else if (balance0 > amount0Use) {
+            if (wethToken0) {
+                weth.withdraw(balance0 - amount0Use);
+            } else {
+                pool.token0().safeTransfer(msg.sender, balance0 - amount0Use);
+            }
         }
-        if (amount1Use - balance1 > 0) {
+        if (amount1Use > balance1) {
             if (wethToken0) {
                 pool.token1().safeTransferFrom(
                     msg.sender,
@@ -578,6 +580,12 @@ contract GUniRouter02 is IGUniRouter02 {
                 );
             } else {
                 weth.deposit{value: amount1Use - balance1}();
+            }
+        } else if (balance1 > amount1Use) {
+            if (wethToken0) {
+                pool.token1().safeTransfer(msg.sender, balance1 - amount1Use);
+            } else {
+                weth.withdraw(balance1 - amount1Use);
             }
         }
     }
@@ -597,6 +605,9 @@ contract GUniRouter02 is IGUniRouter02 {
     }
 
     receive() external payable {
-        revert("cannot receive ETH");
+        require(
+            msg.sender == address(weth),
+            "only receive ETH from WETH address"
+        );
     }
 }
