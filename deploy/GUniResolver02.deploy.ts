@@ -19,6 +19,7 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 
   await deploy("GUniResolver02", {
     from: deployer,
+    nonce: 266,
   });
 };
 
