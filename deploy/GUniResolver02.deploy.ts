@@ -9,7 +9,7 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
     hre.network.name === "ropsten"
   ) {
     console.log(
-      `!! Deploying GUniResolver to mainnet/testnet. Hit ctrl + c to abort`
+      `!! Deploying GUniResolver02 to mainnet/testnet. Hit ctrl + c to abort`
     );
     await new Promise((r) => setTimeout(r, 20000));
   }

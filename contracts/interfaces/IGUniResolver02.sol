@@ -5,16 +5,6 @@ pragma solidity 0.8.4;
 import {IGUniPool} from "./IGUniPool.sol";
 
 interface IGUniResolver02 {
-    function getUnderlyingBalances(IGUniPool pool, uint256 balance)
-        external
-        view
-        returns (uint256 amount0, uint256 amount1);
-
-    function getPoolUnderlyingBalances(IGUniPool pool)
-        external
-        view
-        returns (uint256 amount0, uint256 amount1);
-
     function getRebalanceParams(
         IGUniPool pool,
         uint256 amount0In,

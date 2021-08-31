@@ -17,27 +17,6 @@ import {TickMath} from "./vendor/uniswap/TickMath.sol";
 contract GUniResolver02 is IGUniResolver02 {
     using TickMath for int24;
 
-    function getPoolUnderlyingBalances(IGUniPool pool)
-        public
-        view
-        override
-        returns (uint256 amount0, uint256 amount1)
-    {
-        return pool.getUnderlyingBalances();
-    }
-
-    function getUnderlyingBalances(IGUniPool pool, uint256 balance)
-        external
-        view
-        override
-        returns (uint256 amount0, uint256 amount1)
-    {
-        (uint256 gross0, uint256 gross1) = pool.getUnderlyingBalances();
-        uint256 supply = pool.totalSupply();
-        amount0 = FullMath.mulDiv(gross0, balance, supply);
-        amount1 = FullMath.mulDiv(gross1, balance, supply);
-    }
-
     // solhint-disable-next-line function-max-lines
     function getRebalanceParams(
         IGUniPool pool,
