@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/gelatodigital/g-uni-v1-periphery/tree/master.svg?style=svg)](https://circleci.com/gh/gelatodigital/g-uni-v1-periphery/tree/master)
+[![CircleCI](https://circleci.com/gh/gelatodigital/g-uni-v1-periphery/tree/master.svg?style=svg&circle-token=14bd631afdddc114adc2412e65c2e1ea22941ab9)](https://circleci.com/gh/gelatodigital/g-uni-v1-periphery/tree/master)
 
 # g-uni-v1-periphery
 
