@@ -57,6 +57,11 @@ const config: HardhatUserConfig = {
       chainId: 3,
       url: `https://eth-ropsten.alchemyapi.io/v2/${ALCHEMY_ID}`,
     },
+    goerli: {
+      accounts: DEPLOYER_PK ? [DEPLOYER_PK] : [],
+      chainId: 5,
+      url: `https://eth-goerli.alchemyapi.io/v2/${ALCHEMY_ID}`,
+    },
   },
 
   solidity: {

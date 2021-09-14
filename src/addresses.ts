@@ -43,6 +43,20 @@ export const getAddresses = (network: string): Addresses => {
         GUniFactory: "0xCe23a1A2B2b18A2fEC300D3DB48f543E9d66BC08",
         OneInchRouter: "",
       };
+    case "goerli":
+      return {
+        Gelato: "0x683913B3A32ada4F8100458A3E1675425BdAa7DF",
+        UniswapV3Factory: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+        Swapper: "",
+        GelatoAdmin: "",
+        WETH: "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6",
+        DAI: "",
+        GUniRouter: "",
+        USDC: "",
+        GUniResolver: "",
+        GUniFactory: "0x399cFce1F3f5AB74C46d9F0361BE18f87c23FCC3",
+        OneInchRouter: "",
+      };
     default:
       throw new Error(`No addresses for Network: ${network}`);
   }
