@@ -372,7 +372,7 @@ describe("GUni Periphery Contracts: Version 2", function () {
       );
       expect(result2.zeroForOne).to.be.false;
 
-      const quoteAmount3 = await quote1Inch(
+      /*const quoteAmount3 = await quote1Inch(
         "1",
         addresses.USDC,
         addresses.DAI,
@@ -390,7 +390,7 @@ describe("GUni Periphery Contracts: Version 2", function () {
         amountUSDCIn
       );
 
-      /*console.log("swap amount:", ethers.utils.formatUnits(result2.swapAmount, "6"));
+      console.log("swap amount:", ethers.utils.formatUnits(result2.swapAmount, "6"));
       console.log("quoteAmount3?", quoteAmount3);
       console.log("return amount:", ethers.utils.formatEther(ethers.BigNumber.from(quoteAmount3)));
       console.log("dai expected:", ethers.utils.formatEther(mintAmounts.amount0))
@@ -420,8 +420,8 @@ describe("GUni Periphery Contracts: Version 2", function () {
         false,
         [approveParams.to, swapParams.to],
         [approveParams.data, swapParams.data],
-        mintAmounts.amount0,
-        mintAmounts.amount1,
+        0,
+        0,
         await user0.getAddress()
       );
 
