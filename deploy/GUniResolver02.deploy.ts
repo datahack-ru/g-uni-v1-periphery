@@ -6,7 +6,8 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
   if (
     hre.network.name === "mainnet" ||
     hre.network.name === "rinkeby" ||
-    hre.network.name === "ropsten"
+    hre.network.name === "ropsten" ||
+    hre.network.name === "goerli"
   ) {
     console.log(
       `!! Deploying GUniResolver02 to mainnet/testnet. Hit ctrl + c to abort`
@@ -19,7 +20,6 @@ const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
 
   await deploy("GUniResolver02", {
     from: deployer,
-    nonce: 266,
   });
 };
 
@@ -27,7 +27,8 @@ func.skip = async (hre: HardhatRuntimeEnvironment) => {
   const shouldSkip =
     hre.network.name === "mainnet" ||
     hre.network.name === "rinkeby" ||
-    hre.network.name === "ropsten";
+    hre.network.name === "ropsten" ||
+    hre.network.name === "goerli";
   return shouldSkip ? true : false;
 };
 
