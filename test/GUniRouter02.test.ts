@@ -304,7 +304,7 @@ describe("GUni Periphery Contracts: Version 2", function () {
       expect(contractBalanceG).to.equal(ethers.constants.Zero);
     });
 
-    it("should deposit funds with rebalanceAndAddLiquidity", async function () {
+    it("should deposit funds with rebalanceAndAddLiquidity (swap token1)", async function () {
       await daiToken
         .connect(user0)
         .approve(gUniRouter.address, ethers.utils.parseEther("1000000"));
@@ -340,6 +340,7 @@ describe("GUni Periphery Contracts: Version 2", function () {
       const priceX18 = numerator
         .mul(ethers.utils.parseEther("1"))
         .div(denominator);
+      //console.log("price check:", priceX18.toString());
 
       const result = await gUniResolver.getRebalanceParams(
         gUniPool.address,
@@ -372,7 +373,7 @@ describe("GUni Periphery Contracts: Version 2", function () {
       );
       expect(result2.zeroForOne).to.be.false;
 
-      /*const quoteAmount3 = await quote1Inch(
+      const quoteAmount3 = await quote1Inch(
         "1",
         addresses.USDC,
         addresses.DAI,
@@ -384,18 +385,28 @@ describe("GUni Periphery Contracts: Version 2", function () {
       );
       const amountUSDCIn = ethers.BigNumber.from(
         spendAmountUSDC.toString()
-      ).sub(result.swapAmount);
+      ).sub(result2.swapAmount);
       const mintAmounts = await gUniPool.getMintAmounts(
         amountDAIIn,
         amountUSDCIn
       );
 
-      console.log("swap amount:", ethers.utils.formatUnits(result2.swapAmount, "6"));
-      console.log("quoteAmount3?", quoteAmount3);
-      console.log("return amount:", ethers.utils.formatEther(ethers.BigNumber.from(quoteAmount3)));
-      console.log("dai expected:", ethers.utils.formatEther(mintAmounts.amount0))
-      console.log("usdc expected:", ethers.utils.formatUnits(mintAmounts.amount1, "6"))
-      console.log("get swap params...")*/
+      console.log(
+        "swap amount:",
+        ethers.utils.formatUnits(result2.swapAmount, "6")
+      );
+      console.log(
+        "return amount:",
+        ethers.utils.formatEther(ethers.BigNumber.from(quoteAmount3))
+      );
+      console.log(
+        "dai expected:",
+        ethers.utils.formatEther(mintAmounts.amount0)
+      );
+      console.log(
+        "usdc expected:",
+        ethers.utils.formatUnits(mintAmounts.amount1, "6")
+      );
 
       const swapParams = await swapTokenData(
         "1",
@@ -439,7 +450,7 @@ describe("GUni Periphery Contracts: Version 2", function () {
       expect(balanceUsdcBefore).to.be.gt(balanceUsdcAfter);
       expect(balanceGUniBefore).to.be.lt(balanceGUniAfter);
 
-      /*console.log(
+      console.log(
         "DAI input:",
         ethers.utils.formatEther(balanceDaiBefore.sub(balanceDaiAfter))
       );
@@ -447,13 +458,195 @@ describe("GUni Periphery Contracts: Version 2", function () {
         "USDC input:",
         ethers.utils.formatUnits(balanceUsdcBefore.sub(balanceUsdcAfter), "6")
       );
-      console.log("G-UNI minted:", balanceGUniAfter.sub(balanceGUniBefore).toString())
-      const balances = await gUniResolver.getUnderlyingBalances(gUniToken.address, balanceGUniAfter.sub(balanceGUniBefore).toString());
-      console.log("DAI deposited:", ethers.utils.formatEther(balances.amount0));
-      console.log("USDC deposited:", ethers.utils.formatUnits(balances.amount1, "6"));*/
+      console.log(
+        "G-UNI minted:",
+        balanceGUniAfter.sub(balanceGUniBefore).toString()
+      );
+      const balanceChange = balanceGUniAfter.sub(balanceGUniBefore);
+      const reserves = await gUniPool.getUnderlyingBalances();
+      const supply = await gUniPool.totalSupply();
+      const balance0 = reserves.amount0.mul(balanceChange).div(supply);
+      const balance1 = reserves.amount1.mul(balanceChange).div(supply);
+      console.log("DAI deposited:", ethers.utils.formatEther(balance0));
+      console.log("USDC deposited:", ethers.utils.formatUnits(balance1, "6"));
 
       const diffGUni = balanceGUniAfter.sub(balanceGUniBefore);
       expect(balanceGUniBefore).to.be.lt(diffGUni);
+
+      const contractBalanceDai = await daiToken.balanceOf(gUniRouter.address);
+      const contractBalanceWeth = await usdcToken.balanceOf(gUniRouter.address);
+      const contractBalanceG = await gUniToken.balanceOf(gUniRouter.address);
+
+      expect(contractBalanceDai).to.equal(ethers.constants.Zero);
+      expect(contractBalanceWeth).to.equal(ethers.constants.Zero);
+      expect(contractBalanceG).to.equal(ethers.constants.Zero);
+    });
+    it("should deposit funds with rebalanceAndAddLiquidity (swap token0)", async function () {
+      await daiToken
+        .connect(user0)
+        .approve(gUniRouter.address, ethers.utils.parseEther("1000000"));
+      await usdcToken
+        .connect(user0)
+        .approve(gUniRouter.address, ethers.utils.parseUnits("1000000", "6"));
+      const balanceDaiBefore = await daiToken.balanceOf(
+        await user0.getAddress()
+      );
+      const balanceUsdcBefore = await usdcToken.balanceOf(
+        await user0.getAddress()
+      );
+      const balanceGUniBefore = await gUniToken.balanceOf(
+        await user0.getAddress()
+      );
+      const spendAmountUSDC = ethers.utils.parseUnits("10000", "6");
+      const spendAmountDAI = ethers.utils.parseUnits("100000", "18");
+      //console.log("dai balance:", ethers.utils.formatEther(balanceDaiBefore));
+
+      //await new Promise((r) => setTimeout(r, 2000));
+      const quoteAmount = await quote1Inch(
+        "1",
+        addresses.DAI,
+        addresses.USDC,
+        spendAmountDAI.toString()
+      );
+
+      const numerator = ethers.BigNumber.from(quoteAmount).mul(
+        ethers.utils.parseEther("1")
+      );
+      const denominator = spendAmountDAI.mul(
+        ethers.BigNumber.from((10 ** 6).toString())
+      );
+      const priceX18 = numerator
+        .mul(ethers.utils.parseEther("1"))
+        .div(denominator);
+      //console.log("price check:", priceX18.toString());
+
+      const result = await gUniResolver.getRebalanceParams(
+        gUniPool.address,
+        spendAmountDAI,
+        spendAmountUSDC,
+        priceX18
+      );
+      expect(result.zeroForOne).to.be.true;
+
+      const quoteAmount2 = await quote1Inch(
+        "1",
+        addresses.DAI,
+        addresses.USDC,
+        result.swapAmount.toString()
+      );
+
+      const numerator2 = ethers.BigNumber.from(quoteAmount2).mul(
+        ethers.utils.parseEther("1")
+      );
+      const denominator2 = result.swapAmount.mul(
+        ethers.BigNumber.from((10 ** 6).toString())
+      );
+      const price2 = numerator2
+        .mul(ethers.utils.parseEther("1"))
+        .div(denominator2);
+
+      const result2 = await gUniResolver.getRebalanceParams(
+        gUniPool.address,
+        spendAmountDAI,
+        spendAmountUSDC,
+        price2
+      );
+      expect(result2.zeroForOne).to.be.true;
+
+      const quoteAmount3 = await quote1Inch(
+        "1",
+        addresses.DAI,
+        addresses.USDC,
+        result2.swapAmount.toString()
+      );
+
+      const amountUSDCIn = spendAmountUSDC.add(
+        ethers.BigNumber.from(quoteAmount3)
+      );
+      const amountDAIIn = spendAmountDAI.sub(result2.swapAmount);
+
+      const mintAmounts = await gUniPool.getMintAmounts(
+        amountDAIIn,
+        amountUSDCIn
+      );
+
+      console.log("swap amount:", ethers.utils.formatEther(result2.swapAmount));
+      console.log(
+        "return amount:",
+        ethers.utils.formatUnits(ethers.BigNumber.from(quoteAmount3), "6")
+      );
+      console.log(
+        "dai expected:",
+        ethers.utils.formatEther(mintAmounts.amount0)
+      );
+      console.log(
+        "usdc expected:",
+        ethers.utils.formatUnits(mintAmounts.amount1, "6")
+      );
+
+      const swapParams = await swapTokenData(
+        "1",
+        addresses.DAI,
+        addresses.USDC,
+        result2.swapAmount.toString(),
+        gUniRouter.address,
+        "10"
+      );
+
+      const approveParams = await approveTokenData(
+        "1",
+        addresses.DAI,
+        result2.swapAmount.toString()
+      );
+
+      await gUniRouter.rebalanceAndAddLiquidity(
+        gUniPool.address,
+        spendAmountDAI,
+        spendAmountUSDC,
+        result2.swapAmount.toString(),
+        true,
+        [approveParams.to, swapParams.to],
+        [approveParams.data, swapParams.data],
+        0,
+        0,
+        await user0.getAddress()
+      );
+
+      const balanceDaiAfter = await daiToken.balanceOf(
+        await user0.getAddress()
+      );
+      const balanceUsdcAfter = await usdcToken.balanceOf(
+        await user0.getAddress()
+      );
+      const balanceGUniAfter = await gUniToken.balanceOf(
+        await user0.getAddress()
+      );
+
+      expect(balanceDaiBefore).to.be.gt(balanceDaiAfter);
+      //expect(balanceUsdcBefore).to.be.gt(balanceUsdcAfter);
+      expect(balanceGUniBefore).to.be.lt(balanceGUniAfter);
+
+      console.log(
+        "DAI input:",
+        ethers.utils.formatEther(balanceDaiBefore.sub(balanceDaiAfter))
+      );
+      console.log(
+        "USDC input:",
+        ethers.utils.formatUnits(balanceUsdcBefore.sub(balanceUsdcAfter), "6")
+      );
+      console.log(
+        "G-UNI minted:",
+        balanceGUniAfter.sub(balanceGUniBefore).toString()
+      );
+      const balanceChange = balanceGUniAfter.sub(balanceGUniBefore);
+      const reserves = await gUniPool.getUnderlyingBalances();
+      const supply = await gUniPool.totalSupply();
+      const balance0 = reserves.amount0.mul(balanceChange).div(supply);
+      const balance1 = reserves.amount1.mul(balanceChange).div(supply);
+      console.log("DAI deposited:", ethers.utils.formatEther(balance0));
+      console.log("USDC deposited:", ethers.utils.formatUnits(balance1, "6"));
+
+      expect(balanceGUniBefore).to.be.lt(balanceGUniAfter);
 
       const contractBalanceDai = await daiToken.balanceOf(gUniRouter.address);
       const contractBalanceWeth = await usdcToken.balanceOf(gUniRouter.address);
