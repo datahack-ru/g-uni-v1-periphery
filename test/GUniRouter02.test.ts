@@ -1,6 +1,12 @@
 import { expect } from "chai";
 import { ethers, network } from "hardhat";
-import { IERC20, GUniResolver02, GUniRouter02, IGUniPool } from "../typechain";
+import {
+  IERC20,
+  GUniResolver02,
+  GUniRouter02,
+  IGUniPool,
+  GUniStaticFactory,
+} from "../typechain";
 import fetch from "node-fetch";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { getAddresses } from "../src/addresses";
@@ -887,6 +893,41 @@ describe("GUni Periphery Contracts: Version 2", function () {
       expect(balanceEthAfter).to.be.gt(balanceEthBefore);
       expect(balanceUsdcAfter).to.be.gt(balanceUsdcBefore);
       expect(balanceGUniBefore).to.be.gt(balanceGUniAfter);
+    });
+  });
+  describe("GUniStaticFactory", function () {
+    it("should deploy a pool and renounce manager", async function () {
+      const gUniDeployerFactory = await ethers.getContractFactory(
+        "GUniStaticFactory"
+      );
+
+      const gUniDeployer = (await gUniDeployerFactory.deploy(
+        addresses.GUniFactory,
+        []
+      )) as GUniStaticFactory;
+
+      await gUniDeployer.createPool(
+        addresses.WETH,
+        addresses.DAI,
+        3000,
+        -1200,
+        1200
+      );
+
+      const poolAddress = await gUniDeployer.poolsByIndex(0);
+
+      const poolContract = (await ethers.getContractAt(
+        "IGUniPool",
+        poolAddress
+      )) as IGUniPool;
+
+      const manager = await poolContract.manager();
+      const lower = await poolContract.lowerTick();
+      const upper = await poolContract.upperTick();
+
+      expect(manager).to.equal(ethers.constants.AddressZero);
+      expect(lower).to.equal(-1200);
+      expect(upper).to.equal(1200);
     });
   });
 });
