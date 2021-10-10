@@ -7,12 +7,12 @@ import {IGUniPool} from "./interfaces/IGUniPool.sol";
 contract GUniStaticFactory {
     IGUniFactory public immutable factory;
     uint256 public nextPoolIndex;
-    mapping(uint256 => address) public poolsByIndex;
+    mapping(uint256 => address) public staticPools;
 
     constructor(IGUniFactory _factory, address[] memory _existingPools) {
         factory = _factory;
         for (uint256 i = 0; i < _existingPools.length; i++) {
-            poolsByIndex[i] = _existingPools[i];
+            staticPools[i] = _existingPools[i];
         }
         nextPoolIndex = _existingPools.length;
     }
@@ -37,7 +37,7 @@ contract GUniStaticFactory {
 
         IGUniPool(pool).renounceOwnership();
 
-        poolsByIndex[nextPoolIndex] = pool;
+        staticPools[nextPoolIndex] = pool;
         nextPoolIndex += 1;
     }
 

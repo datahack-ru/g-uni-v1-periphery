@@ -897,16 +897,16 @@ describe("GUni Periphery Contracts: Version 2", function () {
   });
   describe("GUniStaticFactory", function () {
     it("should deploy a pool and renounce manager", async function () {
-      const gUniDeployerFactory = await ethers.getContractFactory(
+      const gUniStaticFactory = await ethers.getContractFactory(
         "GUniStaticFactory"
       );
 
-      const gUniDeployer = (await gUniDeployerFactory.deploy(
+      const gUniStatic = (await gUniStaticFactory.deploy(
         addresses.GUniFactory,
-        []
+        [gUniPool.address]
       )) as GUniStaticFactory;
 
-      await gUniDeployer.createPool(
+      await gUniStatic.createPool(
         addresses.WETH,
         addresses.DAI,
         3000,
@@ -914,7 +914,9 @@ describe("GUni Periphery Contracts: Version 2", function () {
         1200
       );
 
-      const poolAddress = await gUniDeployer.poolsByIndex(0);
+      const oldPool = await gUniStatic.staticPools(0);
+      expect(oldPool).to.equal(gUniPool.address);
+      const poolAddress = await gUniStatic.staticPools(1);
 
       const poolContract = (await ethers.getContractAt(
         "IGUniPool",
